@@ -1,0 +1,156 @@
+.winner-modal {
+    --winner-color: #fff;
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+    background: rgb(8 12 20 / 68%);
+    backdrop-filter: blur(8px);
+    animation: winner-modal-fade-in 0.4s ease both;
+}
+
+.winner-modal__dialog {
+    box-sizing: border-box;
+    width: min(100%, 26rem);
+    padding: 2.5rem 2rem 2rem;
+    border: 1px solid color-mix(in srgb, var(--winner-color) 55%, transparent);
+    border-radius: 1.25rem;
+    background:
+        radial-gradient(ellipse at 50% 0, color-mix(in srgb, var(--winner-color) 22%, transparent), transparent 58%),
+        #171b24;
+    box-shadow: 0 1.5rem 5rem rgb(0 0 0 / 45%), 0 0 2.5rem color-mix(in srgb, var(--winner-color) 18%, transparent);
+    color: #f7f8fa;
+    font-family: "Space Grotesk", "Share Tech", "Saira", sans-serif;
+    text-align: center;
+    animation:
+        winner-modal-pop-in 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both,
+        winner-modal-glow 4.8s ease-in-out 420ms infinite;
+}
+
+.winner-modal__badge {
+    display: grid;
+    width: 4rem;
+    height: 4rem;
+    margin: 0 auto 1.25rem;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--winner-color) 75%, transparent);
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--winner-color) 18%, #171b24);
+    box-shadow: 0 0 2rem color-mix(in srgb, var(--winner-color) 35%, transparent);
+    color: var(--winner-color);
+    font-size: 2rem;
+    font-weight: 700;
+    animation: winner-modal-badge-pulse 3.8s ease-in-out infinite;
+}
+
+.winner-modal__title {
+    margin: 0;
+    color: var(--winner-color);
+    font-size: clamp(2rem, 8vw, 2.75rem);
+    font-weight: 700;
+    letter-spacing: -0.055em;
+    line-height: 1.1;
+}
+
+.winner-modal__message {
+    margin: 0.85rem 0 1.75rem;
+    color: #c3c9d4;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
+.winner-modal__button {
+    min-width: 9rem;
+    padding: 0.8rem 1.4rem;
+    border: 0;
+    border-radius: 999px;
+    background: var(--winner-color);
+    color: #11141a;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    transition: transform 160ms ease, filter 160ms ease;
+}
+
+.winner-modal__button:hover {
+    filter: brightness(1.08);
+    transform: translateY(-2px);
+}
+
+.winner-modal__button:focus-visible {
+    outline: 3px solid #fff;
+    outline-offset: 4px;
+}
+
+.winner-modal--closing {
+    animation: winner-modal-fade-out 180ms ease-in both;
+}
+
+.winner-modal--closing .winner-modal__dialog {
+    animation: winner-modal-pop-out 180ms ease-in both;
+}
+
+@keyframes winner-modal-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes winner-modal-fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@keyframes winner-modal-pop-in {
+    from { opacity: 0; transform: translateY(1rem) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes winner-modal-pop-out {
+    from { opacity: 1; transform: translateY(0) scale(1); }
+    to { opacity: 0; transform: translateY(0.5rem) scale(0.98); }
+}
+
+@keyframes winner-modal-glow {
+    0%, 100% {
+        box-shadow: 0 1.5rem 5rem rgb(0 0 0 / 45%), 0 0 1.5rem color-mix(in srgb, var(--winner-color) 13%, transparent);
+    }
+    25%, 75% {
+        box-shadow: 0 1.5rem 5rem rgb(0 0 0 / 45%), 0 0 1.9rem color-mix(in srgb, var(--winner-color) 19%, transparent);
+    }
+    50% {
+        box-shadow: 0 1.5rem 5rem rgb(0 0 0 / 45%), 0 0 2.5rem color-mix(in srgb, var(--winner-color) 28%, transparent);
+    }
+}
+
+@keyframes winner-modal-badge-pulse {
+    0%, 100% {
+        box-shadow: 0 0 1rem color-mix(in srgb, var(--winner-color) 18%, transparent);
+        transform: scale(1);
+    }
+    25%, 75% {
+        box-shadow: 0 0 1.2rem color-mix(in srgb, var(--winner-color) 22%, transparent);
+        transform: scale(1.01);
+    }
+    50% {
+        box-shadow: 0 0 1.8rem color-mix(in srgb, var(--winner-color) 34%, transparent);
+        transform: scale(1.03);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .winner-modal,
+    .winner-modal__dialog,
+    .winner-modal__badge,
+    .winner-modal--closing,
+    .winner-modal--closing .winner-modal__dialog {
+        animation-duration: 1ms;
+    }
+
+    .winner-modal__button {
+        transition: none;
+    }
+}

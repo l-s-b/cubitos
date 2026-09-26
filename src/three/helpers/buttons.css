@@ -1,0 +1,57 @@
+button#rotateUp {
+  position: fixed;
+  bottom: 12rem;
+  right: 6rem;
+  width: 3.5rem;
+  height: 3.5rem;
+  font-size: 1.15rem;
+}
+
+button#rotateDown {
+    position: fixed;
+    bottom: 6rem;
+    right: 6rem;
+    width: 3.5rem;
+    height: 3.5rem;
+    font-size: 1.15rem;
+}
+
+button#rotateLeft {
+    position: fixed;
+    bottom: 9rem;
+    right: 9rem;
+    width: 3.5rem;
+    height: 3.5rem;
+    font-size: 1.15rem;
+}
+
+button#rotateRight {
+    position: fixed;
+    bottom: 9rem;
+    right: 3rem;
+    width: 3.5rem;
+    height: 3.5rem;
+    font-size: 1.15rem;
+}
+
+button#rotateClockwise {
+    position: fixed;
+    bottom: 12rem;
+    right: 3rem;
+    width: 3.5rem;
+    height: 3.5rem;
+    font-family: "Share Tech", "Space Grotesk", "Saira", sans-serif;
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+}
+
+button#rotateCounterClockwise {
+    position: fixed;
+    bottom: 12rem;
+    right: 9rem;
+    width: 3.5rem;
+    height: 3.5rem;
+    font-family: "Share Tech", "Space Grotesk", "Saira", sans-serif;
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+}

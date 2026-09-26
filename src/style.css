@@ -1,0 +1,72 @@
+* {
+  box-sizing: border-box;
+}
+
+body,
+#app {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  color: #f7f8fa;
+  font-family: "Space Grotesk", "Share Tech", "Saira", sans-serif;
+  font-optical-sizing: auto;
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  text-align: center;
+  overflow: hidden;
+}
+
+button {
+  border: 1px solid rgb(255 255 255 / 24%);
+  border-radius: 0.75rem;
+  background: rgb(23 27 36 / 90%);
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 22%);
+  color: #f7f8fa;
+  cursor: pointer;
+  font-family: "Space Grotesk", "Share Tech", "Saira", sans-serif;
+  font-weight: 600;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+button:hover {
+  transform: translateY(-2px);
+  border-color: rgb(255 255 255 / 48%);
+  background: #252b38;
+  box-shadow: 0 0.75rem 1.75rem rgb(0 0 0 / 30%);
+}
+
+button:active {
+  transform: translateY(0) scale(0.96);
+}
+
+button:focus-visible {
+  outline: 3px solid #a8d8ff;
+  outline-offset: 3px;
+}
+
+button#reset {
+  position:fixed;
+  bottom: 2rem;
+  right: 2rem;
+  min-width: 6rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button {
+    transition: none;
+  }
+}

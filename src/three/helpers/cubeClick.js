@@ -1,0 +1,193 @@
+import { Color, Raycaster, Vector2 } from 'three';
+import { renderer } from '../renderer';
+import { camera1 } from '../cameras';
+import { redCubeMaterial, greenCubeMaterial, blueCubeMaterial } from '../materials';
+import winningCases from './winningCases';
+import { resetCubes } from './reset';
+import './winnerModal.css';
+
+const raycaster = new Raycaster();
+const mouse = new Vector2();
+let currentColorIndex = 2;
+const winnerColors = {
+    Rojo: '#ef5350',
+    Verde: '#66bb6a',
+    Azul: '#42a5f5',
+};
+
+function showWinnerModal(color, onClose) {
+    const overlay = document.createElement('div');
+    overlay.className = 'winner-modal';
+    overlay.style.setProperty('--winner-color', winnerColors[color]);
+    overlay.setAttribute('role', 'presentation');
+
+    const dialog = document.createElement('section');
+    dialog.className = 'winner-modal__dialog';
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-labelledby', 'winner-modal-title');
+
+    const badge = document.createElement('div');
+    badge.className = 'winner-modal__badge';
+    badge.setAttribute('aria-hidden', 'true');
+    badge.textContent = '✓';
+
+    const title = document.createElement('h2');
+    title.className = 'winner-modal__title';
+    title.id = 'winner-modal-title';
+    title.textContent = `${color} wins!`;
+
+    const message = document.createElement('p');
+    message.className = 'winner-modal__message';
+    message.textContent = 'A brilliant match. Ready for another round?';
+
+    const closeButton = document.createElement('button');
+    closeButton.className = 'winner-modal__button';
+    closeButton.type = 'button';
+    closeButton.textContent = 'Play again';
+
+    let isClosing = false;
+    const close = () => {
+        if (isClosing) return;
+        isClosing = true;
+        overlay.classList.add('winner-modal--closing');
+        overlay.addEventListener('animationend', event => {
+            if (event.target !== overlay) return;
+            overlay.remove();
+            onClose();
+        });
+    };
+
+    closeButton.addEventListener('click', close);
+    overlay.addEventListener('click', event => {
+        if (event.target === overlay) close();
+    });
+    overlay.addEventListener('keydown', event => {
+        if (event.key === 'Escape') close();
+    });
+
+    dialog.append(badge, title, message, closeButton);
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+    closeButton.focus();
+}
+
+function startWinnerGlow(material) {
+    const originalColor = material.emissive.clone();
+    const originalIntensity = material.emissiveIntensity;
+    const winnerEmissive = material.color.clone();
+    const highlightEmissive = winnerEmissive.clone().lerp(new Color(0xffffff), 0.45);
+    const emissiveStops = [
+        new Color(0x000000),
+        winnerEmissive,
+        highlightEmissive,
+        winnerEmissive,
+        new Color(0x000000),
+    ];
+    const intensityStops = [0, 0.3, 0.85, 0.3, 0];
+    const pulseDuration = 5200;
+    let startTime;
+    let frameId;
+
+    const pulse = timestamp => {
+        if (startTime === undefined) startTime = timestamp;
+        const phase = ((timestamp - startTime) % pulseDuration) / pulseDuration;
+        const segment = phase * (emissiveStops.length - 1);
+        const index = Math.floor(segment);
+        const rawProgress = segment - index;
+        const progress = rawProgress * rawProgress * (3 - 2 * rawProgress);
+        const nextIndex = Math.min(index + 1, emissiveStops.length - 1);
+
+        material.emissive.lerpColors(
+            emissiveStops[index],
+            emissiveStops[nextIndex],
+            progress
+        );
+        material.emissiveIntensity = intensityStops[index] + (
+            intensityStops[nextIndex] - intensityStops[index]
+        ) * progress;
+        frameId = requestAnimationFrame(pulse);
+    };
+    frameId = requestAnimationFrame(pulse);
+
+    return () => {
+        cancelAnimationFrame(frameId);
+        material.emissive.copy(originalColor);
+        material.emissiveIntensity = originalIntensity;
+    };
+}
+
+
+export default function cubeClickColorChange(cubeList) {
+    const cubeColors = [redCubeMaterial, greenCubeMaterial, blueCubeMaterial];
+    let occupiedCubes = [
+        {
+            color: 'Rojo',
+            HTMLColor: 'red',
+            cubesWithThisColor: []
+        },
+        {
+            color: 'Verde',
+            HTMLColor: 'green',
+            cubesWithThisColor: []
+        },
+        {
+            color: 'Azul',
+            HTMLColor: 'blue',
+            cubesWithThisColor: []
+        }
+    ];
+
+    function checkWinner(thisTurnsCubes) {
+        const isWinner = winningCases.some(winningCase => (
+                winningCase.every(winningPosition => thisTurnsCubes.includes(winningPosition))
+            )
+        )
+        if (isWinner) { 
+            const winner = occupiedCubes[currentColorIndex];
+            const winningMaterial = cubeColors[currentColorIndex];
+            cubeList.forEach(cube => {
+                cube.material = winningMaterial;
+            });
+
+            const stopWinnerGlow = startWinnerGlow(winningMaterial);
+            let isModalClosed = false;
+            window.dispatchEvent(new Event('cube-winner-start'));
+            showWinnerModal(winner.color, () => {
+                if (isModalClosed) return;
+                isModalClosed = true;
+                stopWinnerGlow();
+                occupiedCubes.forEach(colorList => {
+                    colorList.cubesWithThisColor = [];
+                });
+                resetCubes();
+                window.dispatchEvent(new Event('cube-winner-end'));
+            });
+        }
+    }
+
+    // Listen for clicks on the canvas
+    renderer.domElement.addEventListener('dblclick', onClick, false);
+    function onClick(event) {
+        // Convert mouse click to normalized device coordinates (-1 to +1)
+        const rect = renderer.domElement.getBoundingClientRect();
+        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        // Cast a ray from the camera through the mouse
+        raycaster.setFromCamera(mouse, camera1);
+        const intersects = raycaster.intersectObjects(cubeList);
+
+        if (intersects.length > 0) {
+            const selectedCube = intersects[0].object;
+            const currentColor = selectedCube.material;
+            if (currentColor.touched) {return}
+            else if (currentColorIndex === 2) {currentColorIndex = 0} else {currentColorIndex++};
+            selectedCube.material = cubeColors[currentColorIndex];
+            occupiedCubes[currentColorIndex].cubesWithThisColor.push(selectedCube.shortName);
+            checkWinner(occupiedCubes[currentColorIndex].cubesWithThisColor);
+        }
+
+    }
+}
+export const resetCubeColorOrder = () => { currentColorIndex = 2 }
