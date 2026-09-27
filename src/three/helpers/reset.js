@@ -1,13 +1,13 @@
 import { cubeList } from "../cube";
 import { untouchedCubeMaterial } from "../materials";
-import { resetCubeColorOrder } from "./cubeClick";
+import { resetCubeGameState } from "./cubeClick";
 import { onLanguageChange, translate } from "../../language";
 
   export function resetCubes() {
     cubeList.forEach(cube => {
         cube.material = untouchedCubeMaterial;
     })
-    resetCubeColorOrder();
+    resetCubeGameState();
   }
 
 export default function renderCubeResetter() {

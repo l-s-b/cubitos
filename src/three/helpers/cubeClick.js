@@ -11,6 +11,11 @@ const raycaster = new Raycaster();
 const mouse = new Vector2();
 let currentColorIndex = 2;
 const cubeColors = [redCubeMaterial, greenCubeMaterial, blueCubeMaterial];
+const occupiedCubes = [
+    { color: 'Rojo', HTMLColor: 'red', cubesWithThisColor: [] },
+    { color: 'Verde', HTMLColor: 'green', cubesWithThisColor: [] },
+    { color: 'Azul', HTMLColor: 'blue', cubesWithThisColor: [] },
+];
 
 function setTurnBackground(colorIndex) {
     const playerColor = cubeColors[colorIndex].color;
@@ -141,24 +146,6 @@ function startWinnerGlow(material) {
 
 
 export default function cubeClickColorChange(cubeList) {
-    let occupiedCubes = [
-        {
-            color: 'Rojo',
-            HTMLColor: 'red',
-            cubesWithThisColor: []
-        },
-        {
-            color: 'Verde',
-            HTMLColor: 'green',
-            cubesWithThisColor: []
-        },
-        {
-            color: 'Azul',
-            HTMLColor: 'blue',
-            cubesWithThisColor: []
-        }
-    ];
-
     function checkWinner(thisTurnsCubes) {
         const isWinner = winningCases.some(winningCase => (
                 winningCase.every(winningPosition => thisTurnsCubes.includes(winningPosition))
@@ -178,9 +165,6 @@ export default function cubeClickColorChange(cubeList) {
                 if (isModalClosed) return;
                 isModalClosed = true;
                 stopWinnerGlow();
-                occupiedCubes.forEach(colorList => {
-                    colorList.cubesWithThisColor = [];
-                });
                 resetCubes();
                 window.dispatchEvent(new Event('cube-winner-end'));
             });
@@ -245,7 +229,10 @@ export default function cubeClickColorChange(cubeList) {
 
     }
 }
-export const resetCubeColorOrder = () => {
+export const resetCubeGameState = () => {
     currentColorIndex = 2;
+    occupiedCubes.forEach(colorList => {
+        colorList.cubesWithThisColor = [];
+    });
     setTurnBackground(0);
 };
