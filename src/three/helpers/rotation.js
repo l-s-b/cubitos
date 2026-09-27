@@ -27,6 +27,9 @@ let isDragging = false;
 let dragVelocityX = 0;
 let dragVelocityY = 0;
 let lastDragTimestamp = 0;
+let lastPointerX = 0;
+let lastPointerY = 0;
+let activePointerId = null;
 let dragAxis = null;
 let dragDeltaCount = 0;
 let pendingDragX = 0;
@@ -166,12 +169,15 @@ function setupDragRotation() {
 
     canvas.style.touchAction = "none";
     canvas.addEventListener("pointerdown", event => {
-        if (event.button !== 0) return;
+        if (event.button !== 0 || activePointerId !== null) return;
 
+        activePointerId = event.pointerId;
         isDragging = true;
         dragVelocityX = 0;
         dragVelocityY = 0;
         lastDragTimestamp = event.timeStamp;
+        lastPointerX = event.clientX;
+        lastPointerY = event.clientY;
         stopDragInertia();
         dragAxis = null;
         dragDeltaCount = 0;
@@ -182,12 +188,16 @@ function setupDragRotation() {
         canvas.setPointerCapture(event.pointerId);
     });
     canvas.addEventListener("pointermove", event => {
-        if (!isDragging) return;
+        if (!isDragging || event.pointerId !== activePointerId) return;
 
+        const deltaX = event.clientX - lastPointerX;
+        const deltaY = event.clientY - lastPointerY;
+        lastPointerX = event.clientX;
+        lastPointerY = event.clientY;
         const elapsed = (event.timeStamp - lastDragTimestamp) / 1000;
         if (elapsed > 0) {
-            const instantaneousVelocityX = event.movementX * dragSensitivity / elapsed;
-            const instantaneousVelocityY = event.movementY * dragSensitivity / elapsed;
+            const instantaneousVelocityX = deltaX * dragSensitivity / elapsed;
+            const instantaneousVelocityY = deltaY * dragSensitivity / elapsed;
             dragVelocityX += (instantaneousVelocityX - dragVelocityX) * 0.45;
             dragVelocityY += (instantaneousVelocityY - dragVelocityY) * 0.45;
         }
@@ -195,8 +205,8 @@ function setupDragRotation() {
 
         if (dragRotationMode === "axis-locked") {
             if (!dragAxis) {
-                pendingDragX += event.movementX;
-                pendingDragY += event.movementY;
+                pendingDragX += deltaX;
+                pendingDragY += deltaY;
                 dragDeltaCount += 1;
 
                 if (dragDeltaCount < 10) return;
@@ -211,38 +221,39 @@ function setupDragRotation() {
                 rotateAroundWorldAxis(
                     cubeGroup,
                     new Vector3(0, 1, 0),
-                    event.movementX * dragSensitivity
+                    deltaX * dragSensitivity
                 );
             } else {
                 rotateAroundWorldAxis(
                     cubeGroup,
                     new Vector3(1, 0, 0),
-                    event.movementY * dragSensitivity
+                    deltaY * dragSensitivity
                 );
             }
             return;
         }
 
         // Compound mode maps horizontal and vertical movement to Y and X rotations.
-        if (event.movementX !== 0) {
+        if (deltaX !== 0) {
             rotateAroundWorldAxis(
                 cubeGroup,
                 new Vector3(0, 1, 0),
-                event.movementX * dragSensitivity
+                deltaX * dragSensitivity
             );
         }
-        if (event.movementY !== 0) {
+        if (deltaY !== 0) {
             rotateAroundWorldAxis(
                 cubeGroup,
                 new Vector3(1, 0, 0),
-                event.movementY * dragSensitivity
+                deltaY * dragSensitivity
             );
         }
     });
     canvas.addEventListener("pointerup", event => {
-        if (!isDragging) return;
+        if (!isDragging || event.pointerId !== activePointerId) return;
 
         isDragging = false;
+        activePointerId = null;
         dragAxis = null;
         dragDeltaCount = 0;
         pendingDragX = 0;
@@ -262,7 +273,10 @@ function setupDragRotation() {
         canvas.releasePointerCapture(event.pointerId);
     });
     canvas.addEventListener("pointercancel", event => {
+        if (event.pointerId !== activePointerId) return;
+
         isDragging = false;
+        activePointerId = null;
         dragVelocityX = 0;
         dragVelocityY = 0;
         stopDragInertia();

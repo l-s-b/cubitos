@@ -10,6 +10,7 @@ import { onLanguageChange, translate } from '../../language';
 const raycaster = new Raycaster();
 const mouse = new Vector2();
 let currentColorIndex = 2;
+
 const winnerColors = {
     Rojo: '#ef5350',
     Verde: '#66bb6a',
@@ -179,15 +180,42 @@ export default function cubeClickColorChange(cubeList) {
         }
     }
 
-    // Listen for clicks on the canvas
-    renderer.domElement.addEventListener('dblclick', onClick, false);
+    const canvas = renderer.domElement;
+    let touchStart = null;
+    const tapMovementThreshold = 12;
+
+    canvas.addEventListener('pointerdown', event => {
+        if (event.pointerType !== 'touch') return;
+        touchStart = {
+            pointerId: event.pointerId,
+            x: event.clientX,
+            y: event.clientY,
+        };
+    });
+    canvas.addEventListener('pointerup', event => {
+        if (
+            event.pointerType !== 'touch'
+            || !touchStart
+            || event.pointerId !== touchStart.pointerId
+        ) return;
+
+        const movement = Math.hypot(
+            event.clientX - touchStart.x,
+            event.clientY - touchStart.y,
+        );
+        touchStart = null;
+        if (movement <= tapMovementThreshold) onClick(event);
+    });
+    canvas.addEventListener('pointercancel', event => {
+        if (event.pointerId === touchStart?.pointerId) touchStart = null;
+    });
+    canvas.addEventListener('dblclick', onClick, false);
+
     function onClick(event) {
-        // Convert mouse click to normalized device coordinates (-1 to +1)
         const rect = renderer.domElement.getBoundingClientRect();
         mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-        // Cast a ray from the camera through the mouse
         raycaster.setFromCamera(mouse, camera1);
         const intersects = raycaster.intersectObjects(cubeList);
 
