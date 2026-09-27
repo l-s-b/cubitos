@@ -7,7 +7,9 @@ import resize from './three/resize';
 import animate from './three/loop';
 import setCubeGroup from './three/cubeGroup';
 import { rotationButtons } from './three/helpers/rotation';
+import { createLanguageToggle } from './language';
 
+createLanguageToggle();
 setRenderEngine();
 placeLights();
 setCamera();

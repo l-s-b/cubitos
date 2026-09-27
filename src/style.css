@@ -65,8 +65,23 @@ button#reset {
   letter-spacing: 0.12em;
 }
 
+button#language-toggle {
+  position: fixed;
+  z-index: 20;
+  top: max(1rem, env(safe-area-inset-top));
+  right: max(1rem, env(safe-area-inset-right));
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  padding: 0;
+  place-items: center;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  button {
+  button,
+  #app canvas {
     transition: none;
   }
 }

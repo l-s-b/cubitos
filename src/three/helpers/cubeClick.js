@@ -5,6 +5,7 @@ import { redCubeMaterial, greenCubeMaterial, blueCubeMaterial } from '../materia
 import winningCases from './winningCases';
 import { resetCubes } from './reset';
 import './winnerModal.css';
+import { onLanguageChange, translate } from '../../language';
 
 const raycaster = new Raycaster();
 const mouse = new Vector2();
@@ -13,6 +14,11 @@ const winnerColors = {
     Rojo: '#ef5350',
     Verde: '#66bb6a',
     Azul: '#42a5f5',
+};
+const winnerTranslationKeys = {
+    Rojo: 'colorRed',
+    Verde: 'colorGreen',
+    Azul: 'colorBlue',
 };
 
 function showWinnerModal(color, onClose) {
@@ -35,16 +41,22 @@ function showWinnerModal(color, onClose) {
     const title = document.createElement('h2');
     title.className = 'winner-modal__title';
     title.id = 'winner-modal-title';
-    title.textContent = `${color} wins!`;
+    const updateTitle = () => {
+        title.textContent = translate('winnerTitle', {
+            color: translate(winnerTranslationKeys[color]),
+        });
+        message.textContent = translate('winnerMessage');
+        closeButton.textContent = translate('playAgain');
+    };
 
     const message = document.createElement('p');
     message.className = 'winner-modal__message';
-    message.textContent = 'A brilliant match. Ready for another round?';
 
     const closeButton = document.createElement('button');
     closeButton.className = 'winner-modal__button';
     closeButton.type = 'button';
-    closeButton.textContent = 'Play again';
+    updateTitle();
+    const unsubscribeFromLanguageChanges = onLanguageChange(updateTitle);
 
     let isClosing = false;
     const close = () => {
@@ -54,6 +66,7 @@ function showWinnerModal(color, onClose) {
         overlay.addEventListener('animationend', event => {
             if (event.target !== overlay) return;
             overlay.remove();
+            unsubscribeFromLanguageChanges();
             onClose();
         });
     };

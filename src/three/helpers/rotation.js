@@ -2,6 +2,7 @@ import { cubeGroup } from "../cubeGroup";
 import { renderer } from "../renderer";
 import "./buttons.css";
 import { Matrix4, Quaternion, Vector3 } from "three";
+import { onLanguageChange, translate } from "../../language";
 
 const app = document.querySelector("#app");
 
@@ -283,18 +284,20 @@ export function rotationButtons() {
     setupDragRotation();
 
     const buttons = [
-        ["rotateUp", "▲", "w"],
-        ["rotateDown", "▼", "s"],
-        ["rotateLeft", "◀", "a"],
-        ["rotateRight", "▶", "d"],
-        ["rotateClockwise", "CW", "e"],
-        ["rotateCounterClockwise", "CC", "q"],
+        ["rotateUp", "▲", "w", "rotateUp"],
+        ["rotateDown", "▼", "s", "rotateDown"],
+        ["rotateLeft", "◀", "a", "rotateLeft"],
+        ["rotateRight", "▶", "d", "rotateRight"],
+        ["rotateClockwise", "↻", "e", "rotateClockwise"],
+        ["rotateCounterClockwise", "↺", "q", "rotateCounterClockwise"],
     ];
 
-    buttons.forEach(([id, label, key]) => {
+    buttons.forEach(([id, label, key, translationKey]) => {
         const btn = document.createElement("button");
         btn.id = id;
         btn.innerText = label;
+        btn.setAttribute("aria-label", translate(translationKey));
+        btn.title = `${translate(translationKey)} (${key.toUpperCase()})`;
         app.appendChild(btn);
 
         const start = () => {
@@ -323,6 +326,15 @@ export function rotationButtons() {
         btn.addEventListener("mouseleave", stop);
         btn.addEventListener("touchstart", start);
         btn.addEventListener("touchend", stop);
+    });
+
+    onLanguageChange(() => {
+        buttons.forEach(([id, , key, translationKey]) => {
+            const button = document.getElementById(id);
+            const label = translate(translationKey);
+            button.setAttribute("aria-label", label);
+            button.title = `${label} (${key.toUpperCase()})`;
+        });
     });
 
     window.addEventListener("keydown", event => {
