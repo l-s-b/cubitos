@@ -10,6 +10,14 @@ import { onLanguageChange, translate } from '../../language';
 const raycaster = new Raycaster();
 const mouse = new Vector2();
 let currentColorIndex = 2;
+const cubeColors = [redCubeMaterial, greenCubeMaterial, blueCubeMaterial];
+
+function setTurnBackground(colorIndex) {
+    const playerColor = cubeColors[colorIndex].color;
+    const { h, s } = playerColor.getHSL({});
+    const backgroundColor = new Color().setHSL(h, s * 0.65, 0.055);
+    renderer.domElement.style.backgroundColor = `#${backgroundColor.getHexString()}`;
+}
 
 const winnerColors = {
     Rojo: '#ef5350',
@@ -133,7 +141,6 @@ function startWinnerGlow(material) {
 
 
 export default function cubeClickColorChange(cubeList) {
-    const cubeColors = [redCubeMaterial, greenCubeMaterial, blueCubeMaterial];
     let occupiedCubes = [
         {
             color: 'Rojo',
@@ -177,8 +184,12 @@ export default function cubeClickColorChange(cubeList) {
                 resetCubes();
                 window.dispatchEvent(new Event('cube-winner-end'));
             });
+            return true;
         }
+        return false;
     }
+
+    setTurnBackground(0);
 
     const canvas = renderer.domElement;
     let touchStart = null;
@@ -226,9 +237,15 @@ export default function cubeClickColorChange(cubeList) {
             else if (currentColorIndex === 2) {currentColorIndex = 0} else {currentColorIndex++};
             selectedCube.material = cubeColors[currentColorIndex];
             occupiedCubes[currentColorIndex].cubesWithThisColor.push(selectedCube.shortName);
-            checkWinner(occupiedCubes[currentColorIndex].cubesWithThisColor);
+            const hasWinner = checkWinner(occupiedCubes[currentColorIndex].cubesWithThisColor);
+            if (!hasWinner) {
+                setTurnBackground((currentColorIndex + 1) % cubeColors.length);
+            }
         }
 
     }
 }
-export const resetCubeColorOrder = () => { currentColorIndex = 2 }
+export const resetCubeColorOrder = () => {
+    currentColorIndex = 2;
+    setTurnBackground(0);
+};

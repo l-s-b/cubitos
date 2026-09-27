@@ -6,8 +6,8 @@ import { onLanguageChange, translate } from "../../language";
   export function resetCubes() {
     cubeList.forEach(cube => {
         cube.material = untouchedCubeMaterial;
-        resetCubeColorOrder();
     })
+    resetCubeColorOrder();
   }
 
 export default function renderCubeResetter() {
