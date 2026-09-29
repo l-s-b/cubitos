@@ -10,6 +10,8 @@ import { onLanguageChange, translate } from '../../language';
 const raycaster = new Raycaster();
 const mouse = new Vector2();
 let currentColorIndex = 2;
+let currentGameMode = 'three-player';
+let turnCount = 0;
 const cubeColors = [redCubeMaterial, greenCubeMaterial, blueCubeMaterial];
 const occupiedCubes = [
     { color: 'Rojo', HTMLColor: 'red', cubesWithThisColor: [] },
@@ -35,7 +37,7 @@ const winnerTranslationKeys = {
     Azul: 'colorBlue',
 };
 
-function showWinnerModal(color, onClose, isDraw = false) {
+function showWinnerModal(color, onClose, isDraw = false, winnerNameKey = null) {
     const overlay = document.createElement('div');
     overlay.className = isDraw
         ? 'winner-modal winner-modal--draw'
@@ -65,6 +67,12 @@ function showWinnerModal(color, onClose, isDraw = false) {
             title.textContent = translate('drawTitle');
             message.textContent = translate('drawMessage');
             closeButton.textContent = translate('drawReset');
+        } else if (winnerNameKey) {
+            title.textContent = translate('playerWins', {
+                player: translate(winnerNameKey),
+            });
+            message.textContent = translate('winnerMessage');
+            closeButton.textContent = translate('playAgain');
         } else {
             title.textContent = translate('winnerTitle', {
                 color: translate(winnerTranslationKeys[color]),
@@ -172,13 +180,16 @@ export default function cubeClickColorChange(cubeList) {
             const stopWinnerGlow = startWinnerGlow(winningMaterial);
             let isModalClosed = false;
             window.dispatchEvent(new Event('cube-winner-start'));
+            const winnerNameKey = currentGameMode === 'two-player'
+                ? currentColorIndex === 1 ? 'playerTwo' : 'playerOne'
+                : null;
             showWinnerModal(winner.color, () => {
                 if (isModalClosed) return;
                 isModalClosed = true;
                 stopWinnerGlow();
                 resetCubes();
                 window.dispatchEvent(new Event('cube-winner-end'));
-            });
+            }, false, winnerNameKey);
             return true;
         }
         return false;
@@ -243,6 +254,7 @@ export default function cubeClickColorChange(cubeList) {
             else if (currentColorIndex === 2) {currentColorIndex = 0} else {currentColorIndex++};
             selectedCube.material = cubeColors[currentColorIndex];
             occupiedCubes[currentColorIndex].cubesWithThisColor.push(selectedCube.shortName);
+            turnCount += 1;
             const hasWinner = checkWinner(occupiedCubes[currentColorIndex].cubesWithThisColor);
             if (!hasWinner && cubeList.every(cube => cube.material.touched)) {
                 showDraw();
@@ -255,8 +267,14 @@ export default function cubeClickColorChange(cubeList) {
 }
 export const resetCubeGameState = () => {
     currentColorIndex = 2;
+    turnCount = 0;
     occupiedCubes.forEach(colorList => {
         colorList.cubesWithThisColor = [];
     });
     setTurnBackground(0);
+};
+
+export const configureGameMode = mode => {
+    currentGameMode = mode;
+    resetCubeGameState();
 };

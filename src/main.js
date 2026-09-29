@@ -8,6 +8,8 @@ import animate from './three/loop';
 import setCubeGroup from './three/cubeGroup';
 import { rotationButtons } from './three/helpers/rotation';
 import { createLanguageToggle } from './language';
+import { configureGameMode } from './three/helpers/cubeClick';
+import createStartMenu from './startMenu';
 
 createLanguageToggle();
 setRenderEngine();
@@ -15,6 +17,9 @@ placeLights();
 setCamera();
 setCubeGroup();
 fillScene();
-rotationButtons();
 resize();
 animate();
+createStartMenu(mode => {
+  configureGameMode(mode);
+  rotationButtons();
+});
