@@ -1,4 +1,4 @@
-const winningCases = [
+const WINNING_CASES = [
     // Horizontales
     ['ACB', 'BCA', 'CCB'],
     ['ACB', 'BCB', 'CCB'],
@@ -53,4 +53,4 @@ const winningCases = [
     ['CCB', 'BBC', 'AAB']
 ]
 
-export default winningCases;
+export default WINNING_CASES;

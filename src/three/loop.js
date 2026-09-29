@@ -1,3 +1,4 @@
+import { Clock } from "three";
 import { camera1 } from "./cameras";
 import {
     rotationChecks,
@@ -7,7 +8,6 @@ import {
 } from "./helpers/rotation";
 import { renderer } from "./renderer";
 import { scene } from "./scene";
-import { Clock } from "three";
 
 const clock = new Clock();
 

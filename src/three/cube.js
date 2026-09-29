@@ -6,7 +6,7 @@ import { untouchedCubeMaterial } from "./materials";
 
 const cubeGeometry = new RoundedBoxGeometry(1, 1, 1, 3, 0.075);
 
-const cubeData = [
+const CUBE_DATA = [
   {
     positionPoints: [0, 0, 1.1],
     shortName: 'BBC',
@@ -100,7 +100,7 @@ const cubeData = [
  
 ]
 
-const cubeList = cubeData.map(eachCube => {
+const cubeList = CUBE_DATA.map(eachCube => {
   const cube = new Mesh(cubeGeometry, untouchedCubeMaterial);
   cube.longName = eachCube.longName;
   cube.shortName = eachCube.shortName;

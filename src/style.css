@@ -83,6 +83,41 @@ button#language-toggle {
   line-height: 1;
 }
 
+.game-turn-status {
+  position: fixed;
+  z-index: 2;
+  top: max(1rem, env(safe-area-inset-top));
+  left: max(1rem, env(safe-area-inset-left));
+  margin: 0;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 999px;
+  background: rgb(23 27 36 / 90%);
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 22%);
+  color: #f7f8fa;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.cube-tooltip {
+  position: fixed;
+  z-index: 10;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid rgb(255 255 255 / 22%);
+  border-radius: 0.5rem;
+  background: rgb(23 27 36 / 96%);
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 30%);
+  color: #f7f8fa;
+  font-size: 0.8rem;
+  font-weight: 600;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.cube-tooltip[hidden] {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   button,
   #app canvas {

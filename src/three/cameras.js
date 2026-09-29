@@ -3,13 +3,13 @@ import { renderer } from "./renderer";
 import { light1 } from "./lights";
 
 const camera1 = new PerspectiveCamera();
-const defaultCameraDistance = 7.2;
+const DEFAULT_CAMERA_DISTANCE = 7.2;
 
 export function updateCameraViewport(width, height) {
     camera1.aspect = width / height;
     camera1.position.z = height > width
-        ? defaultCameraDistance * 1.5
-        : defaultCameraDistance;
+        ? DEFAULT_CAMERA_DISTANCE * 1.5
+        : DEFAULT_CAMERA_DISTANCE;
     camera1.updateProjectionMatrix();
 }
 

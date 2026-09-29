@@ -1,8 +1,19 @@
 import { cubeGroup } from "../cubeGroup";
 import { renderer } from "../renderer";
-import "./buttons.css";
 import { Matrix4, Quaternion, Vector3 } from "three";
 import { onLanguageChange, translate } from "../../language";
+import "./buttons.css";
+
+const SETTLING_DURATION = 2.5;
+const SNAP_THRESHOLD = 0.0001;
+const MINIMUM_ROTATION_ANGLE = Math.PI / 2; // 90°
+const MINIMUM_ROTATION_THRESHOLD = Math.PI / 4; // 45°
+// Use "axis-locked" to select one rotation axis after the first 10 pointer deltas.
+const DRAG_ROTATION_MODE = "compound";
+const DRAG_INERTIA_DAMPING = 4.5;
+const DRAG_INERTIA_THRESHOLD = 0.08;
+const MAX_DRAG_INERTIA_SPEED = 5.5;
+const DRAG_SENSITIVITY = 0.005;
 
 const app = document.querySelector("#app");
 
@@ -16,12 +27,6 @@ export const rotationFlags = {
 };
 
 const orthogonalRotations = createOrthogonalRotations();
-const settlingDuration = 3;
-const snapThreshold = 0.0001;
-const minimumRotationAngle = Math.PI / 2;
-const minimumRotationThreshold = Math.PI / 4;
-// Use "axis-locked" to select one rotation axis after the first 10 pointer deltas.
-const dragRotationMode = "compound";
 let forcedRotationTarget = null;
 let isDragging = false;
 let dragVelocityX = 0;
@@ -34,15 +39,12 @@ let dragAxis = null;
 let dragDeltaCount = 0;
 let pendingDragX = 0;
 let pendingDragY = 0;
-const dragInertia = {
-    x: 0,
-    y: 0,
-};
-const dragInertiaDamping = 4.5;
-const dragInertiaThreshold = 0.08;
-const maxDragInertiaSpeed = 5.5;
 let winnerMotionActive = false;
 let winnerMotionElapsed = 0;
+const dragInertia = {
+   x: 0,
+   y: 0,
+};
 const winnerMotionSpeeds = {
     x: { min: 0, max: 0, frequency: 0, phase: 0, direction: 1 },
     y: { min: 0, max: 0, frequency: 0, phase: 0, direction: 1 },
@@ -64,7 +66,7 @@ const settlingState = {
     active: false,
 };
 
-const buttonRotations = {
+const BUTTON_ROTATIONS = {
     rotateUp: [new Vector3(1, 0, 0), -1],
     rotateDown: [new Vector3(1, 0, 0), 1],
     rotateLeft: [new Vector3(0, 1, 0), -1],
@@ -72,7 +74,7 @@ const buttonRotations = {
     rotateClockwise: [new Vector3(0, 0, 1), -1],
     rotateCounterClockwise: [new Vector3(0, 0, 1), 1],
 };
-const buttonIdsByKey = new Map([
+const BUTTON_IDS_BY_KEY = new Map([
     ["w", "rotateUp"],
     ["s", "rotateDown"],
     ["a", "rotateLeft"],
@@ -120,7 +122,7 @@ function closestRotationTo(source) {
 function setForcedRotationTarget(pressStart, axis, direction) {
     const minimumRotation = new Quaternion().setFromAxisAngle(
         axis,
-        minimumRotationAngle * direction
+        MINIMUM_ROTATION_ANGLE * direction
     );
     const desiredRotation = pressStart.clone().premultiply(minimumRotation);
     forcedRotationTarget = closestRotationTo(desiredRotation);
@@ -144,7 +146,6 @@ function randomizeWinnerMotionSpeed(speed, minSpeed, maxSpeed) {
 
 function setupDragRotation() {
     const canvas = renderer.domElement;
-    const dragSensitivity = 0.005;
 
     window.addEventListener("cube-winner-start", () => {
         winnerMotionBase.copy(cubeGroup.quaternion);
@@ -196,14 +197,14 @@ function setupDragRotation() {
         lastPointerY = event.clientY;
         const elapsed = (event.timeStamp - lastDragTimestamp) / 1000;
         if (elapsed > 0) {
-            const instantaneousVelocityX = deltaX * dragSensitivity / elapsed;
-            const instantaneousVelocityY = deltaY * dragSensitivity / elapsed;
+            const instantaneousVelocityX = deltaX * DRAG_SENSITIVITY / elapsed;
+            const instantaneousVelocityY = deltaY * DRAG_SENSITIVITY / elapsed;
             dragVelocityX += (instantaneousVelocityX - dragVelocityX) * 0.45;
             dragVelocityY += (instantaneousVelocityY - dragVelocityY) * 0.45;
         }
         lastDragTimestamp = event.timeStamp;
 
-        if (dragRotationMode === "axis-locked") {
+        if (DRAG_ROTATION_MODE === "axis-locked") {
             if (!dragAxis) {
                 pendingDragX += deltaX;
                 pendingDragY += deltaY;
@@ -221,13 +222,13 @@ function setupDragRotation() {
                 rotateAroundWorldAxis(
                     cubeGroup,
                     new Vector3(0, 1, 0),
-                    deltaX * dragSensitivity
+                    deltaX * DRAG_SENSITIVITY
                 );
             } else {
                 rotateAroundWorldAxis(
                     cubeGroup,
                     new Vector3(1, 0, 0),
-                    deltaY * dragSensitivity
+                    deltaY * DRAG_SENSITIVITY
                 );
             }
             return;
@@ -238,14 +239,14 @@ function setupDragRotation() {
             rotateAroundWorldAxis(
                 cubeGroup,
                 new Vector3(0, 1, 0),
-                deltaX * dragSensitivity
+                deltaX * DRAG_SENSITIVITY
             );
         }
         if (deltaY !== 0) {
             rotateAroundWorldAxis(
                 cubeGroup,
                 new Vector3(1, 0, 0),
-                deltaY * dragSensitivity
+                deltaY * DRAG_SENSITIVITY
             );
         }
     });
@@ -260,13 +261,13 @@ function setupDragRotation() {
         pendingDragY = 0;
         const elapsed = (event.timeStamp - lastDragTimestamp) / 1000;
         if (elapsed > 0) {
-            const releaseDecay = Math.exp(-dragInertiaDamping * elapsed);
+            const releaseDecay = Math.exp(-DRAG_INERTIA_DAMPING * elapsed);
             dragVelocityX *= releaseDecay;
             dragVelocityY *= releaseDecay;
         }
         const speed = Math.hypot(dragVelocityX, dragVelocityY);
-        if (speed > dragInertiaThreshold) {
-            const speedScale = Math.min(1, maxDragInertiaSpeed / speed);
+        if (speed > DRAG_INERTIA_THRESHOLD) {
+            const speedScale = Math.min(1, MAX_DRAG_INERTIA_SPEED / speed);
             dragInertia.x = dragVelocityX * speedScale;
             dragInertia.y = dragVelocityY * speedScale;
         }
@@ -328,8 +329,8 @@ export function rotationButtons() {
 
             if (!pressStart) return;
 
-            if (pressStart.angleTo(cubeGroup.quaternion) < minimumRotationThreshold) {
-                const [axis, direction] = buttonRotations[id];
+            if (pressStart.angleTo(cubeGroup.quaternion) < MINIMUM_ROTATION_THRESHOLD) {
+                const [axis, direction] = BUTTON_ROTATIONS[id];
                 setForcedRotationTarget(pressStart, axis, direction);
             }
             settlingState.active = false;
@@ -352,7 +353,7 @@ export function rotationButtons() {
     });
 
     window.addEventListener("keydown", event => {
-        const id = buttonIdsByKey.get(event.key.toLowerCase());
+        const id = BUTTON_IDS_BY_KEY.get(event.key.toLowerCase());
         if (id && !rotationFlags[id]) {
             stopDragInertia();
             rotationFlags[id] = true;
@@ -361,14 +362,14 @@ export function rotationButtons() {
         }
     });
     window.addEventListener("keyup", event => {
-        const id = buttonIdsByKey.get(event.key.toLowerCase());
+        const id = BUTTON_IDS_BY_KEY.get(event.key.toLowerCase());
         if (id && rotationFlags[id]) {
             rotationFlags[id] = false;
             const pressStart = buttonPresses.get(id);
             buttonPresses.delete(id);
 
-            if (pressStart && pressStart.angleTo(cubeGroup.quaternion) < minimumRotationThreshold) {
-                const [axis, direction] = buttonRotations[id];
+            if (pressStart && pressStart.angleTo(cubeGroup.quaternion) < MINIMUM_ROTATION_THRESHOLD) {
+                const [axis, direction] = BUTTON_ROTATIONS[id];
                 setForcedRotationTarget(pressStart, axis, direction);
             }
         }
@@ -411,13 +412,13 @@ export function updateDragInertia(deltaTime) {
     if (isDragging || winnerMotionActive) return;
 
     const speed = Math.hypot(dragInertia.x, dragInertia.y);
-    if (speed <= dragInertiaThreshold) {
+    if (speed <= DRAG_INERTIA_THRESHOLD) {
         stopDragInertia();
         return;
     }
 
-    const decay = Math.exp(-dragInertiaDamping * deltaTime);
-    const rotationScale = (1 - decay) / dragInertiaDamping;
+    const decay = Math.exp(-DRAG_INERTIA_DAMPING * deltaTime);
+    const rotationScale = (1 - decay) / DRAG_INERTIA_DAMPING;
     rotateAroundWorldAxis(
         cubeGroup,
         new Vector3(0, 1, 0),
@@ -444,7 +445,7 @@ export function settleCubeGroup(deltaTime) {
     const targetRotation = getCubeGravityTarget();
     const distance = cubeGroup.quaternion.angleTo(targetRotation);
 
-    if (distance <= snapThreshold) {
+    if (distance <= SNAP_THRESHOLD) {
         cubeGroup.quaternion.copy(targetRotation);
         forcedRotationTarget = null;
         settlingState.active = false;
@@ -460,9 +461,9 @@ export function settleCubeGroup(deltaTime) {
 
     settlingState.elapsed = Math.min(
         settlingState.elapsed + deltaTime,
-        settlingDuration
+        SETTLING_DURATION
     );
-    const progress = settlingState.elapsed / settlingDuration;
+    const progress = settlingState.elapsed / SETTLING_DURATION;
     const easedProgress = progress < 0.5
         ? 4 * progress ** 3
         : 1 - ((-2 * progress + 2) ** 3) / 2;

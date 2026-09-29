@@ -1,4 +1,3 @@
-import './style.css';
 import setRenderEngine from './three/renderer';
 import setCamera from './three/cameras';
 import fillScene from './three/scene';
@@ -8,6 +7,10 @@ import animate from './three/loop';
 import setCubeGroup from './three/cubeGroup';
 import { rotationButtons } from './three/helpers/rotation';
 import { createLanguageToggle } from './language';
+import { configureGame } from './gameMode';
+import { configureGameMode } from './three/helpers/cubeClick';
+import createStartMenu from './startMenu';
+import './style.css';
 
 createLanguageToggle();
 setRenderEngine();
@@ -15,6 +18,10 @@ placeLights();
 setCamera();
 setCubeGroup();
 fillScene();
-rotationButtons();
 resize();
 animate();
+createStartMenu(({ mode, difficulty }) => {
+  configureGame(mode, difficulty);
+  configureGameMode();
+  rotationButtons();
+});
