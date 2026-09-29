@@ -36,6 +36,26 @@ const winnerTranslationKeys = {
     Verde: 'colorGreen',
     Azul: 'colorBlue',
 };
+let gameStarted = false;
+const turnStatus = document.createElement('p');
+turnStatus.className = 'game-turn-status';
+turnStatus.setAttribute('aria-live', 'polite');
+
+function updateTurnStatus() {
+    if (!gameStarted) return;
+    const nextColorIndex = (currentColorIndex + 1) % cubeColors.length;
+    const color = translate(
+        winnerTranslationKeys[occupiedCubes[nextColorIndex].color]
+    );
+    turnStatus.textContent = currentGameMode === 'two-player'
+        ? translate('turnTwoPlayer', {
+            player: turnCount % 2 + 1,
+            color,
+        })
+        : translate('turnThreePlayer', { color });
+}
+
+onLanguageChange(updateTurnStatus);
 
 function showWinnerModal(color, onClose, isDraw = false, winnerNameKey = null) {
     const overlay = document.createElement('div');
@@ -171,6 +191,7 @@ export default function cubeClickColorChange(cubeList) {
             )
         )
         if (isWinner) { 
+            turnStatus.hidden = true;
             const winner = occupiedCubes[currentColorIndex];
             const winningMaterial = cubeColors[currentColorIndex];
             cubeList.forEach(cube => {
@@ -197,6 +218,7 @@ export default function cubeClickColorChange(cubeList) {
 
     function showDraw() {
         let isModalClosed = false;
+        turnStatus.hidden = true;
         window.dispatchEvent(new Event('cube-winner-start'));
         showWinnerModal(null, () => {
             if (isModalClosed) return;
@@ -259,7 +281,9 @@ export default function cubeClickColorChange(cubeList) {
             if (!hasWinner && cubeList.every(cube => cube.material.touched)) {
                 showDraw();
             } else if (!hasWinner) {
-                setTurnBackground((currentColorIndex + 1) % cubeColors.length);
+                const nextColorIndex = (currentColorIndex + 1) % cubeColors.length;
+                setTurnBackground(nextColorIndex);
+                updateTurnStatus();
             }
         }
 
@@ -272,9 +296,15 @@ export const resetCubeGameState = () => {
         colorList.cubesWithThisColor = [];
     });
     setTurnBackground(0);
+    turnStatus.hidden = false;
+    updateTurnStatus();
 };
 
 export const configureGameMode = mode => {
     currentGameMode = mode;
+    gameStarted = true;
     resetCubeGameState();
+    document.querySelector('#app').appendChild(turnStatus);
+    turnStatus.hidden = false;
+    updateTurnStatus();
 };
