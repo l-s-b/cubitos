@@ -317,7 +317,10 @@ export default function cubeClickColorChange(cubeList) {
                     if (!selectedCube || selectedCube.material.touched) {
                         throw new Error(`AI selected unavailable cube "${moveName}".`);
                     }
-                    makeMove(selectedCube);
+                    makeMove(
+                        selectedCube,
+                        (currentColorIndex + 1) % cubeColors.length,
+                    );
                 })
                 .catch(error => {
                     console.error(error);
