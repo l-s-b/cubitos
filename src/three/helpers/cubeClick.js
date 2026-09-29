@@ -35,10 +35,15 @@ const winnerTranslationKeys = {
     Azul: 'colorBlue',
 };
 
-function showWinnerModal(color, onClose) {
+function showWinnerModal(color, onClose, isDraw = false) {
     const overlay = document.createElement('div');
-    overlay.className = 'winner-modal';
-    overlay.style.setProperty('--winner-color', winnerColors[color]);
+    overlay.className = isDraw
+        ? 'winner-modal winner-modal--draw'
+        : 'winner-modal';
+    overlay.style.setProperty(
+        '--winner-color',
+        isDraw ? '#d5d8de' : winnerColors[color],
+    );
     overlay.setAttribute('role', 'presentation');
 
     const dialog = document.createElement('section');
@@ -50,17 +55,23 @@ function showWinnerModal(color, onClose) {
     const badge = document.createElement('div');
     badge.className = 'winner-modal__badge';
     badge.setAttribute('aria-hidden', 'true');
-    badge.textContent = '✓';
+    badge.textContent = isDraw ? '=' : '✓';
 
     const title = document.createElement('h2');
     title.className = 'winner-modal__title';
     title.id = 'winner-modal-title';
     const updateTitle = () => {
-        title.textContent = translate('winnerTitle', {
-            color: translate(winnerTranslationKeys[color]),
-        });
-        message.textContent = translate('winnerMessage');
-        closeButton.textContent = translate('playAgain');
+        if (isDraw) {
+            title.textContent = translate('drawTitle');
+            message.textContent = translate('drawMessage');
+            closeButton.textContent = translate('drawReset');
+        } else {
+            title.textContent = translate('winnerTitle', {
+                color: translate(winnerTranslationKeys[color]),
+            });
+            message.textContent = translate('winnerMessage');
+            closeButton.textContent = translate('playAgain');
+        }
     };
 
     const message = document.createElement('p');
@@ -173,6 +184,17 @@ export default function cubeClickColorChange(cubeList) {
         return false;
     }
 
+    function showDraw() {
+        let isModalClosed = false;
+        window.dispatchEvent(new Event('cube-winner-start'));
+        showWinnerModal(null, () => {
+            if (isModalClosed) return;
+            isModalClosed = true;
+            resetCubes();
+            window.dispatchEvent(new Event('cube-winner-end'));
+        }, true);
+    }
+
     setTurnBackground(0);
 
     const canvas = renderer.domElement;
@@ -222,7 +244,9 @@ export default function cubeClickColorChange(cubeList) {
             selectedCube.material = cubeColors[currentColorIndex];
             occupiedCubes[currentColorIndex].cubesWithThisColor.push(selectedCube.shortName);
             const hasWinner = checkWinner(occupiedCubes[currentColorIndex].cubesWithThisColor);
-            if (!hasWinner) {
+            if (!hasWinner && cubeList.every(cube => cube.material.touched)) {
+                showDraw();
+            } else if (!hasWinner) {
                 setTurnBackground((currentColorIndex + 1) % cubeColors.length);
             }
         }

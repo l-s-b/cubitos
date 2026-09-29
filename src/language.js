@@ -14,6 +14,9 @@ const translations = {
     winnerTitle: '¡Ganó el {color}!',
     winnerMessage: '¡Partidazo! ¿Listos para otra ronda?',
     playAgain: 'Jugar de nuevo',
+    drawTitle: '¡Empate!',
+    drawMessage: 'Nadie formó una línea. ¿Otra partida?',
+    drawReset: 'Reiniciar partida',
   },
   en: {
     switchLanguage: 'Switch language to Spanish',
@@ -30,6 +33,9 @@ const translations = {
     winnerTitle: '{color} wins!',
     winnerMessage: 'A brilliant match. Ready for another round?',
     playAgain: 'Play again',
+    drawTitle: "It's a draw!",
+    drawMessage: 'No one made a line. Play another round?',
+    drawReset: 'Reset game',
   },
 };
 
