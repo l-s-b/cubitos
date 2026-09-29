@@ -6,12 +6,21 @@ import winningCases from './winningCases';
 import { resetCubes } from './reset';
 import './winnerModal.css';
 import { onLanguageChange, translate } from '../../language';
+import {
+    GAME_MODES,
+    getAiDifficulty,
+    getGameMode,
+} from '../../gameMode';
 
 const raycaster = new Raycaster();
 const mouse = new Vector2();
 let currentColorIndex = 2;
-let currentGameMode = 'three-player';
 let turnCount = 0;
+let winnerModalOpen = false;
+let aiTurnTimeout = null;
+let aiWorker = null;
+let pendingAiRequest = null;
+let aiRequestId = 0;
 const cubeColors = [redCubeMaterial, greenCubeMaterial, blueCubeMaterial];
 const occupiedCubes = [
     { color: 'Rojo', HTMLColor: 'red', cubesWithThisColor: [] },
@@ -47,12 +56,18 @@ function updateTurnStatus() {
     const color = translate(
         winnerTranslationKeys[occupiedCubes[nextColorIndex].color]
     );
-    turnStatus.textContent = currentGameMode === 'two-player'
-        ? translate('turnTwoPlayer', {
+    if (getGameMode() === GAME_MODES.ONE_PLAYER) {
+        turnStatus.textContent = nextColorIndex === 0
+            ? translate('turnHuman', { color })
+            : translate('turnAI', { color });
+    } else if (getGameMode() === GAME_MODES.TWO_PLAYER) {
+        turnStatus.textContent = translate('turnTwoPlayer', {
             player: turnCount % 2 + 1,
             color,
-        })
-        : translate('turnThreePlayer', { color });
+        });
+    } else {
+        turnStatus.textContent = translate('turnThreePlayer', { color });
+    }
 }
 
 onLanguageChange(updateTurnStatus);
@@ -185,47 +200,168 @@ function startWinnerGlow(material) {
 
 
 export default function cubeClickColorChange(cubeList) {
-    function checkWinner(thisTurnsCubes) {
-        const isWinner = winningCases.some(winningCase => (
-                winningCase.every(winningPosition => thisTurnsCubes.includes(winningPosition))
-            )
-        )
-        if (isWinner) { 
-            turnStatus.hidden = true;
-            const winner = occupiedCubes[currentColorIndex];
-            const winningMaterial = cubeColors[currentColorIndex];
+    function showOutcome(winnerColor, winnerPlayerKey = null, isDraw = false) {
+        let isModalClosed = false;
+        turnStatus.hidden = true;
+        winnerModalOpen = true;
+        window.dispatchEvent(new Event('cube-winner-start'));
+        const winningMaterial = isDraw ? null : cubeColors[currentColorIndex];
+        if (winningMaterial) {
             cubeList.forEach(cube => {
                 cube.material = winningMaterial;
             });
-
-            const stopWinnerGlow = startWinnerGlow(winningMaterial);
-            let isModalClosed = false;
-            window.dispatchEvent(new Event('cube-winner-start'));
-            const winnerNameKey = currentGameMode === 'two-player'
-                ? currentColorIndex === 1 ? 'playerTwo' : 'playerOne'
-                : null;
-            showWinnerModal(winner.color, () => {
-                if (isModalClosed) return;
-                isModalClosed = true;
-                stopWinnerGlow();
-                resetCubes();
-                window.dispatchEvent(new Event('cube-winner-end'));
-            }, false, winnerNameKey);
-            return true;
         }
-        return false;
-    }
-
-    function showDraw() {
-        let isModalClosed = false;
-        turnStatus.hidden = true;
-        window.dispatchEvent(new Event('cube-winner-start'));
-        showWinnerModal(null, () => {
+        const stopWinnerGlow = winningMaterial
+            ? startWinnerGlow(winningMaterial)
+            : () => {};
+        showWinnerModal(winnerColor, () => {
             if (isModalClosed) return;
             isModalClosed = true;
+            stopWinnerGlow();
             resetCubes();
+            winnerModalOpen = false;
             window.dispatchEvent(new Event('cube-winner-end'));
-        }, true);
+        }, isDraw, winnerPlayerKey);
+    }
+
+    function requestAiWorker() {
+        if (aiWorker) return aiWorker;
+        const worker = new Worker(
+            new URL('./ai.worker.js', import.meta.url),
+            { type: 'module' },
+        );
+        aiWorker = worker;
+        worker.addEventListener('message', event => {
+            if (aiWorker !== worker) return;
+            if (event.data.requestId !== pendingAiRequest?.requestId) return;
+            const request = pendingAiRequest;
+            pendingAiRequest = null;
+            if (event.data.error) {
+                request.reject(new Error(event.data.error));
+            } else {
+                request.resolve(event.data.move);
+            }
+        });
+        worker.addEventListener('error', event => {
+            if (aiWorker !== worker) return;
+            if (pendingAiRequest) {
+                pendingAiRequest.reject(
+                    new Error(`AI worker failed: ${event.message}`),
+                );
+                pendingAiRequest = null;
+            }
+            worker.terminate();
+            aiWorker = null;
+        });
+        return worker;
+    }
+
+    function requestAiMove() {
+        return new Promise((resolve, reject) => {
+            let worker;
+            try {
+                worker = requestAiWorker();
+            } catch (error) {
+                reject(error);
+                return;
+            }
+            const requestId = aiRequestId + 1;
+            aiRequestId = requestId;
+            pendingAiRequest = { requestId, resolve, reject };
+            const occupiedNames = new Set(
+                occupiedCubes.flatMap(color => color.cubesWithThisColor)
+            );
+            try {
+                worker.postMessage({
+                    requestId,
+                    difficulty: getAiDifficulty(),
+                    position: {
+                        red: occupiedCubes[0].cubesWithThisColor,
+                        green: occupiedCubes[1].cubesWithThisColor,
+                        blue: occupiedCubes[2].cubesWithThisColor,
+                        nextPlayer: (currentColorIndex + 1) % cubeColors.length,
+                    },
+                    availableCubes: cubeList
+                        .filter(cube => !occupiedNames.has(cube.shortName))
+                        .map(cube => cube.shortName),
+                });
+            } catch (error) {
+                pendingAiRequest = null;
+                reject(error);
+            }
+        });
+    }
+
+    function scheduleAiTurn() {
+        const nextPlayer = (currentColorIndex + 1) % cubeColors.length;
+        if (
+            getGameMode() !== GAME_MODES.ONE_PLAYER
+            || nextPlayer === 0
+            || winnerModalOpen
+        ) return;
+
+        aiTurnTimeout = window.setTimeout(() => {
+            aiTurnTimeout = null;
+            if (
+                !gameStarted
+                || winnerModalOpen
+                || getGameMode() !== GAME_MODES.ONE_PLAYER
+                || (currentColorIndex + 1) % cubeColors.length === 0
+            ) return;
+            requestAiMove()
+                .then(moveName => {
+                    if (!moveName || !gameStarted || winnerModalOpen) return;
+                    const selectedCube = cubeList.find(
+                        cube => cube.shortName === moveName
+                    );
+                    if (!selectedCube || selectedCube.material.touched) {
+                        throw new Error(`AI selected unavailable cube "${moveName}".`);
+                    }
+                    makeMove(selectedCube);
+                })
+                .catch(error => {
+                    console.error(error);
+                    turnStatus.textContent = translate('aiError');
+                });
+        }, 450);
+    }
+
+    function makeMove(selectedCube, moveColorIndex) {
+        if (
+            !gameStarted
+            || winnerModalOpen
+            || selectedCube.material.touched
+        ) return;
+        currentColorIndex = moveColorIndex;
+        selectedCube.material = cubeColors[moveColorIndex];
+        occupiedCubes[moveColorIndex].cubesWithThisColor.push(selectedCube.shortName);
+        const playerIndex = turnCount % 2;
+        turnCount += 1;
+
+        const isWinner = winningCases.some(winningCase => (
+            winningCase.every(position => (
+                occupiedCubes[moveColorIndex].cubesWithThisColor.includes(position)
+            ))
+        ));
+        if (isWinner) {
+            const winnerPlayerKey = getGameMode() === GAME_MODES.TWO_PLAYER
+                ? playerIndex === 0 ? 'playerOne' : 'playerTwo'
+                : null;
+            showOutcome(
+                occupiedCubes[moveColorIndex].color,
+                winnerPlayerKey,
+            );
+            return;
+        }
+        if (cubeList.every(cube => cube.material.touched)) {
+            showOutcome(null, null, true);
+            return;
+        }
+
+        const nextPlayer = (moveColorIndex + 1) % cubeColors.length;
+        setTurnBackground(nextPlayer);
+        updateTurnStatus();
+        scheduleAiTurn();
     }
 
     setTurnBackground(0);
@@ -262,6 +398,15 @@ export default function cubeClickColorChange(cubeList) {
     canvas.addEventListener('dblclick', onClick, false);
 
     function onClick(event) {
+        if (
+            !gameStarted
+            || winnerModalOpen
+            || (
+                getGameMode() === GAME_MODES.ONE_PLAYER
+                && (currentColorIndex + 1) % cubeColors.length !== 0
+            )
+        ) return;
+
         const rect = renderer.domElement.getBoundingClientRect();
         mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -271,25 +416,26 @@ export default function cubeClickColorChange(cubeList) {
 
         if (intersects.length > 0) {
             const selectedCube = intersects[0].object;
-            const currentColor = selectedCube.material;
-            if (currentColor.touched) {return}
-            else if (currentColorIndex === 2) {currentColorIndex = 0} else {currentColorIndex++};
-            selectedCube.material = cubeColors[currentColorIndex];
-            occupiedCubes[currentColorIndex].cubesWithThisColor.push(selectedCube.shortName);
-            turnCount += 1;
-            const hasWinner = checkWinner(occupiedCubes[currentColorIndex].cubesWithThisColor);
-            if (!hasWinner && cubeList.every(cube => cube.material.touched)) {
-                showDraw();
-            } else if (!hasWinner) {
-                const nextColorIndex = (currentColorIndex + 1) % cubeColors.length;
-                setTurnBackground(nextColorIndex);
-                updateTurnStatus();
-            }
+            if (selectedCube.material.touched) return;
+            const nextPlayer = (currentColorIndex + 1) % cubeColors.length;
+            makeMove(selectedCube, nextPlayer);
         }
 
     }
 }
 export const resetCubeGameState = () => {
+    if (aiTurnTimeout !== null) {
+        window.clearTimeout(aiTurnTimeout);
+        aiTurnTimeout = null;
+    }
+    if (pendingAiRequest) {
+        pendingAiRequest.resolve(null);
+        pendingAiRequest = null;
+        if (aiWorker) {
+            aiWorker.terminate();
+            aiWorker = null;
+        }
+    }
     currentColorIndex = 2;
     turnCount = 0;
     occupiedCubes.forEach(colorList => {
@@ -301,7 +447,9 @@ export const resetCubeGameState = () => {
 };
 
 export const configureGameMode = mode => {
-    currentGameMode = mode;
+    if (!Object.values(GAME_MODES).includes(mode)) {
+        throw new Error(`Unknown game mode "${mode}".`);
+    }
     gameStarted = true;
     resetCubeGameState();
     document.querySelector('#app').appendChild(turnStatus);

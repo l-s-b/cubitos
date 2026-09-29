@@ -1,3 +1,4 @@
+import { AI_DIFFICULTIES, GAME_MODES } from './gameMode';
 import { onLanguageChange, translate } from './language';
 import './startMenu.css';
 
@@ -17,9 +18,10 @@ export default function createStartMenu(onStartGame) {
   document.body.appendChild(overlay);
 
   let currentScreen = 'welcome';
+  let selectedMode;
   let isStarting = false;
 
-  const startGame = mode => {
+  const startGame = difficulty => {
     if (isStarting) return;
     isStarting = true;
     overlay.classList.add('start-menu--closing');
@@ -27,7 +29,7 @@ export default function createStartMenu(onStartGame) {
       if (event.target !== overlay) return;
       overlay.remove();
       unsubscribeFromLanguageChanges();
-      onStartGame(mode);
+      onStartGame({ mode: selectedMode, difficulty });
     });
   };
 
@@ -69,13 +71,35 @@ export default function createStartMenu(onStartGame) {
         currentScreen = 'mode';
         renderScreen();
       }));
-    } else {
+    } else if (currentScreen === 'mode') {
       heading.textContent = translate('menuChooseMode');
       buttons.append(
-        createButton('modeTwoPlayer', () => startGame('two-player'), false, 'modeTwoPlayerDescription'),
-        createButton('modeThreePlayer', () => startGame('three-player'), false, 'modeThreePlayerDescription'),
+        createButton('modeOnePlayer', () => {
+          selectedMode = GAME_MODES.ONE_PLAYER;
+          currentScreen = 'difficulty';
+          renderScreen();
+        }, false, 'modeOnePlayerDescription'),
+        createButton('modeTwoPlayer', () => {
+          selectedMode = GAME_MODES.TWO_PLAYER;
+          startGame(AI_DIFFICULTIES.EASY);
+        }, false, 'modeTwoPlayerDescription'),
+        createButton('modeThreePlayer', () => {
+          selectedMode = GAME_MODES.THREE_PLAYER;
+          startGame(AI_DIFFICULTIES.EASY);
+        }, false, 'modeThreePlayerDescription'),
         createButton('menuBack', () => {
           currentScreen = 'welcome';
+          renderScreen();
+        }, true),
+      );
+    } else {
+      heading.textContent = translate('menuChooseDifficulty');
+      buttons.append(
+        createButton('difficultyEasy', () => startGame(AI_DIFFICULTIES.EASY)),
+        createButton('difficultyMedium', () => startGame(AI_DIFFICULTIES.MEDIUM)),
+        createButton('difficultyHard', () => startGame(AI_DIFFICULTIES.HARD)),
+        createButton('menuBack', () => {
+          currentScreen = 'mode';
           renderScreen();
         }, true),
       );
