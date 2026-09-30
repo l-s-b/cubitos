@@ -2,9 +2,9 @@ import { PointLight, PointLightHelper } from "three";
 
 // Por las dudas, variables con let (la misma luz bien podría variar!)
 let LIGHT_COLOR = 'white';
-let LIGHT_INTENSITY = 5;
+let LIGHT_INTENSITY = 12;
 let LIGHT_REACH_LIMIT = 0;
-let LIGHT_DECAY = 0.75;
+let LIGHT_DECAY = 0.9;
 
 export const light1 = new PointLight(
     LIGHT_COLOR, LIGHT_INTENSITY, LIGHT_REACH_LIMIT, LIGHT_DECAY
