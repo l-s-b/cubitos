@@ -35,6 +35,44 @@ function setTurnBackground(colorIndex) {
     renderer.domElement.style.backgroundColor = `#${backgroundColor.getHexString()}`;
 }
 
+function requestAiWorker() {
+    if (aiWorker) return aiWorker;
+    const worker = new Worker(
+        new URL('./ai.worker.js', import.meta.url),
+        { type: 'module' },
+    );
+    aiWorker = worker;
+    worker.addEventListener('message', event => {
+        if (aiWorker !== worker) return;
+        if (event.data.requestId !== pendingAiRequest?.requestId) return;
+        const request = pendingAiRequest;
+        pendingAiRequest = null;
+        if (event.data.error) {
+            request.reject(new Error(event.data.error));
+        } else {
+            request.resolve(event.data.move);
+        }
+    });
+    worker.addEventListener('error', event => {
+        if (aiWorker !== worker) return;
+        if (pendingAiRequest) {
+            pendingAiRequest.reject(
+                new Error(`AI worker failed: ${event.message}`),
+            );
+            pendingAiRequest = null;
+        }
+        worker.terminate();
+        aiWorker = null;
+    });
+    return worker;
+}
+
+try {
+    requestAiWorker();
+} catch (error) {
+    console.error(error);
+}
+
 const winnerColors = {
     Rojo: '#ef5350',
     Verde: '#66bb6a',
@@ -222,38 +260,6 @@ export default function cubeClickColorChange(cubeList) {
             winnerModalOpen = false;
             window.dispatchEvent(new Event('cube-winner-end'));
         }, isDraw, winnerPlayerKey);
-    }
-
-    function requestAiWorker() {
-        if (aiWorker) return aiWorker;
-        const worker = new Worker(
-            new URL('./ai.worker.js', import.meta.url),
-            { type: 'module' },
-        );
-        aiWorker = worker;
-        worker.addEventListener('message', event => {
-            if (aiWorker !== worker) return;
-            if (event.data.requestId !== pendingAiRequest?.requestId) return;
-            const request = pendingAiRequest;
-            pendingAiRequest = null;
-            if (event.data.error) {
-                request.reject(new Error(event.data.error));
-            } else {
-                request.resolve(event.data.move);
-            }
-        });
-        worker.addEventListener('error', event => {
-            if (aiWorker !== worker) return;
-            if (pendingAiRequest) {
-                pendingAiRequest.reject(
-                    new Error(`AI worker failed: ${event.message}`),
-                );
-                pendingAiRequest = null;
-            }
-            worker.terminate();
-            aiWorker = null;
-        });
-        return worker;
     }
 
     function requestAiMove() {
@@ -455,6 +461,13 @@ export const configureGameMode = mode => {
     }
     gameStarted = true;
     resetCubeGameState();
+    if (mode === GAME_MODES.ONE_PLAYER && !aiWorker) {
+        try {
+            requestAiWorker();
+        } catch (error) {
+            console.error(error);
+        }
+    }
     document.querySelector('#app').appendChild(turnStatus);
     turnStatus.hidden = false;
     updateTurnStatus();
