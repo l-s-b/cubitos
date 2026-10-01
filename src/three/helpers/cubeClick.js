@@ -69,48 +69,59 @@ function cancelSelfishAiRequest() {
     }
 }
 
+function requestSelfishAiWorker() {
+    if (selfishAiWorker) return selfishAiWorker;
+    const worker = new Worker(
+        new URL('./selfishAi.worker.js', import.meta.url),
+        { type: 'module' },
+    );
+    selfishAiWorker = worker;
+    worker.addEventListener('message', event => {
+        if (selfishAiWorker !== worker) return;
+        if (event.data.requestId !== pendingSelfishAiRequest?.requestId) return;
+        const request = pendingSelfishAiRequest;
+        pendingSelfishAiRequest = null;
+        if (event.data.error) {
+            request.reject(new Error(event.data.error));
+        } else {
+            request.resolve(event.data.move);
+        }
+    });
+    worker.addEventListener('error', event => {
+        if (selfishAiWorker !== worker) return;
+        if (pendingSelfishAiRequest) {
+            pendingSelfishAiRequest.reject(
+                new Error(`Super-hard AI worker failed: ${event.message}`),
+            );
+            pendingSelfishAiRequest = null;
+        }
+        worker.terminate();
+        selfishAiWorker = null;
+    });
+    return worker;
+}
+
+try {
+    requestSelfishAiWorker();
+} catch (error) {
+    console.error(error);
+}
+
 function requestSelfishAiMove() {
     return new Promise((resolve, reject) => {
-        if (!selfishAiWorker) {
-            try {
-                const worker = new Worker(
-                    new URL('./selfishAi.worker.js', import.meta.url),
-                    { type: 'module' },
-                );
-                selfishAiWorker = worker;
-                worker.addEventListener('message', event => {
-                    if (selfishAiWorker !== worker) return;
-                    if (event.data.requestId !== pendingSelfishAiRequest?.requestId) return;
-                    const request = pendingSelfishAiRequest;
-                    pendingSelfishAiRequest = null;
-                    if (event.data.error) {
-                        request.reject(new Error(event.data.error));
-                    } else {
-                        request.resolve(event.data.move);
-                    }
-                });
-                worker.addEventListener('error', event => {
-                    if (selfishAiWorker !== worker) return;
-                    if (pendingSelfishAiRequest) {
-                        pendingSelfishAiRequest.reject(
-                            new Error(`Super-hard AI worker failed: ${event.message}`),
-                        );
-                        pendingSelfishAiRequest = null;
-                    }
-                    worker.terminate();
-                    selfishAiWorker = null;
-                });
-            } catch (error) {
-                reject(error);
-                return;
-            }
+        let worker;
+        try {
+            worker = requestSelfishAiWorker();
+        } catch (error) {
+            reject(error);
+            return;
         }
 
         const requestId = selfishAiRequestId + 1;
         selfishAiRequestId = requestId;
         pendingSelfishAiRequest = { requestId, resolve, reject };
         try {
-            selfishAiWorker.postMessage({
+            worker.postMessage({
                 requestId,
                 position: {
                     red: occupiedCubes[0].cubesWithThisColor,
