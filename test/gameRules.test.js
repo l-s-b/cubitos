@@ -224,7 +224,7 @@ test('super-hard AI takes an immediate win for its own color', () => {
     }), ['CBC']);
 });
 
-test('super-hard AI blocks Red instead of playing for Blue', () => {
+test('super-hard AI delays an unavoidable loss by blocking the next win', () => {
     const bestMoves = getOptimalSelfishMoves({
         red: ['ACB', 'BCB'],
         green: [],
@@ -232,7 +232,7 @@ test('super-hard AI blocks Red instead of playing for Blue', () => {
         nextPlayer: 1,
     });
 
-    assert.deepEqual(bestMoves, ['CCB']);
+    assert.deepEqual(bestMoves, ['CBC']);
 });
 
 test('super-hard Green takes its own win instead of supporting another color', () => {
