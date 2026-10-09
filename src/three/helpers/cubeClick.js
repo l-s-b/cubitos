@@ -2,9 +2,14 @@ import { Color, Raycaster, Vector2 } from 'three';
 import { renderer } from '../renderer';
 import { camera1 } from '../cameras';
 import { redCubeMaterial, greenCubeMaterial, blueCubeMaterial } from '../materials';
-import winningCases from './winningCases';
 import { resetCubes } from './reset';
 import './winnerModal.css';
+import {
+    findWinningLine,
+    getWinningCenterCube,
+    getWinningMiddleCube,
+} from './winningLine';
+import { prepareWinnerView } from './rotation';
 import { onLanguageChange, translate } from '../../language';
 import {
     GAME_MODES,
@@ -236,6 +241,32 @@ function startWinnerGlow(material) {
     };
 }
 
+function revealCubeColor(cube, winningMaterial) {
+    const previewMaterial = winningMaterial.clone();
+    previewMaterial.color.set(0xffffff);
+    previewMaterial.touched = true;
+    cube.material = previewMaterial;
+    const targetColor = winningMaterial.color.clone();
+    const startColor = previewMaterial.color.clone();
+    const duration = 550;
+    let startTime;
+
+    return new Promise(resolve => {
+        const animateColor = timestamp => {
+            if (startTime === undefined) startTime = timestamp;
+            const progress = Math.min((timestamp - startTime) / duration, 1);
+            const easedProgress = progress * progress * (3 - 2 * progress);
+            previewMaterial.color.lerpColors(startColor, targetColor, easedProgress);
+            if (progress === 1) {
+                resolve();
+                return;
+            }
+            requestAnimationFrame(animateColor);
+        };
+        requestAnimationFrame(animateColor);
+    });
+}
+
 
 export default function cubeClickColorChange(cubeList) {
     function showOutcome(winnerColor, winnerPlayerKey = null, isDraw = false) {
@@ -260,6 +291,57 @@ export default function cubeClickColorChange(cubeList) {
             winnerModalOpen = false;
             window.dispatchEvent(new Event('cube-winner-end'));
         }, isDraw, winnerPlayerKey);
+    }
+
+    async function playWinSequence(selectedCube, winningLine, winnerPlayerKey) {
+        try {
+            const centerCubeName = getWinningCenterCube(winningLine);
+            const centerCube = cubeList.find(
+                cube => cube.shortName === centerCubeName,
+            );
+            if (!centerCube) {
+                throw new Error('Could not find the center cube for the winning line.');
+            }
+            const middleCubeName = getWinningMiddleCube(winningLine);
+            const middleCube = middleCubeName
+                ? cubeList.find(cube => cube.shortName === middleCubeName)
+                : null;
+            if (middleCubeName && !middleCube) {
+                throw new Error('Could not find the middle cube for the V-shaped winning line.');
+            }
+            const viewDirection = middleCube
+                ? middleCube.position.clone().sub(centerCube.position)
+                : centerCube.position;
+            await prepareWinnerView(viewDirection, { isWin: true });
+            await revealCubeColor(selectedCube, cubeColors[currentColorIndex]);
+            await new Promise(resolve => window.setTimeout(resolve, 500));
+        } catch (error) {
+            console.error(error);
+        }
+        showOutcome(occupiedCubes[currentColorIndex].color, winnerPlayerKey);
+    }
+
+    async function animateAiMove(selectedCube, colorIndex) {
+        try {
+            await prepareWinnerView(selectedCube.position);
+            await revealCubeColor(selectedCube, cubeColors[colorIndex]);
+            selectedCube.material = cubeColors[colorIndex];
+        } catch (error) {
+            console.error(error);
+            selectedCube.material = cubeColors[colorIndex];
+        }
+        window.dispatchEvent(new Event('cube-winner-preparation-end'));
+        winnerModalOpen = false;
+
+        if (turnCount >= cubeList.length) {
+            showOutcome(null, null, true);
+            return;
+        }
+
+        const nextPlayer = (colorIndex + 1) % cubeColors.length;
+        setTurnBackground(nextPlayer);
+        updateTurnStatus();
+        scheduleAiTurn();
     }
 
     function requestAiMove() {
@@ -326,6 +408,7 @@ export default function cubeClickColorChange(cubeList) {
                     makeMove(
                         selectedCube,
                         (currentColorIndex + 1) % cubeColors.length,
+                        true,
                     );
                 })
                 .catch(error => {
@@ -335,33 +418,38 @@ export default function cubeClickColorChange(cubeList) {
         }, 450);
     }
 
-    function makeMove(selectedCube, moveColorIndex) {
+    function makeMove(selectedCube, moveColorIndex, isAiMove = false) {
         if (
             !gameStarted
             || winnerModalOpen
             || selectedCube.material.touched
         ) return;
         currentColorIndex = moveColorIndex;
-        selectedCube.material = cubeColors[moveColorIndex];
         occupiedCubes[moveColorIndex].cubesWithThisColor.push(selectedCube.shortName);
         const playerIndex = turnCount % 2;
         turnCount += 1;
 
-        const isWinner = winningCases.some(winningCase => (
-            winningCase.every(position => (
-                occupiedCubes[moveColorIndex].cubesWithThisColor.includes(position)
-            ))
-        ));
-        if (isWinner) {
+        const winningLine = findWinningLine(
+            occupiedCubes[moveColorIndex].cubesWithThisColor,
+        );
+        if (winningLine) {
             const winnerPlayerKey = getGameMode() === GAME_MODES.TWO_PLAYER
                 ? playerIndex === 0 ? 'playerOne' : 'playerTwo'
                 : null;
-            showOutcome(
-                occupiedCubes[moveColorIndex].color,
+            winnerModalOpen = true;
+            void playWinSequence(
+                selectedCube,
+                winningLine,
                 winnerPlayerKey,
             );
             return;
         }
+        if (isAiMove) {
+            winnerModalOpen = true;
+            void animateAiMove(selectedCube, moveColorIndex);
+            return;
+        }
+        selectedCube.material = cubeColors[moveColorIndex];
         if (cubeList.every(cube => cube.material.touched)) {
             showOutcome(null, null, true);
             return;
