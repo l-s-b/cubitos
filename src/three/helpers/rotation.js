@@ -6,6 +6,8 @@ import "./buttons.css";
 
 const SETTLING_DURATION = 2.5;
 const SNAP_THRESHOLD = 0.0001;
+const AI_ROTATION_MAX_DURATION = 2;
+const WINNER_ROTATION_MAX_DURATION = 3;
 const MINIMUM_ROTATION_ANGLE = Math.PI / 2; // 90°
 const MINIMUM_ROTATION_THRESHOLD = Math.PI / 4; // 45°
 // Use "axis-locked" to select one rotation axis after the first 10 pointer deltas.
@@ -41,6 +43,14 @@ let pendingDragX = 0;
 let pendingDragY = 0;
 let winnerMotionActive = false;
 let winnerMotionElapsed = 0;
+let winnerPreparationActive = false;
+let winnerControlsLocked = false;
+let winnerPreparationElapsed = 0;
+let winnerPreparationDuration = 0;
+const winnerPreparationStart = new Quaternion();
+const winnerPreparationTarget = new Quaternion();
+const winnerCenterDirection = new Vector3();
+let winnerPreparationResolve = null;
 const dragInertia = {
    x: 0,
    y: 0,
@@ -147,7 +157,24 @@ function randomizeWinnerMotionSpeed(speed, minSpeed, maxSpeed) {
 function setupDragRotation() {
     const canvas = renderer.domElement;
 
+    window.addEventListener("cube-winner-preparing", () => {
+        winnerControlsLocked = true;
+        winnerPreparationActive = false;
+        stopDragInertia();
+        isDragging = false;
+        if (activePointerId !== null && canvas.hasPointerCapture(activePointerId)) {
+            canvas.releasePointerCapture(activePointerId);
+        }
+        activePointerId = null;
+        settlingState.active = false;
+        forcedRotationTarget = null;
+        Object.keys(rotationFlags).forEach(id => {
+            rotationFlags[id] = false;
+        });
+        buttonPresses.clear();
+    });
     window.addEventListener("cube-winner-start", () => {
+        winnerControlsLocked = true;
         winnerMotionBase.copy(cubeGroup.quaternion);
         winnerMotionElapsed = 0;
         randomizeWinnerMotionSpeed(winnerMotionSpeeds.x, 0.04, 0.24);
@@ -161,16 +188,20 @@ function setupDragRotation() {
         });
         buttonPresses.clear();
     });
+    window.addEventListener("cube-winner-preparation-end", () => {
+        winnerControlsLocked = false;
+    });
     window.addEventListener("cube-winner-end", () => {
         cubeGroup.quaternion.copy(winnerMotionBase);
         winnerMotionActive = false;
         winnerMotionElapsed = 0;
         settlingState.active = false;
+        winnerControlsLocked = false;
     });
 
     canvas.style.touchAction = "none";
     canvas.addEventListener("pointerdown", event => {
-        if (event.button !== 0 || activePointerId !== null) return;
+        if (winnerControlsLocked || event.button !== 0 || activePointerId !== null) return;
 
         activePointerId = event.pointerId;
         isDragging = true;
@@ -316,6 +347,7 @@ export function rotationButtons() {
         app.appendChild(btn);
 
         const start = () => {
+            if (winnerControlsLocked) return;
             stopDragInertia();
             rotationFlags[id] = true;
             forcedRotationTarget = null;
@@ -354,7 +386,7 @@ export function rotationButtons() {
 
     window.addEventListener("keydown", event => {
         const id = BUTTON_IDS_BY_KEY.get(event.key.toLowerCase());
-        if (id && !rotationFlags[id]) {
+        if (!winnerControlsLocked && id && !rotationFlags[id]) {
             stopDragInertia();
             rotationFlags[id] = true;
             buttonPresses.set(id, cubeGroup.quaternion.clone());
@@ -383,7 +415,7 @@ export function rotateAroundWorldAxis(object, axis, angle) {
 }
 
 export function rotationChecks() {
-    if (winnerMotionActive) return;
+    if (winnerMotionActive || winnerPreparationActive || winnerControlsLocked) return;
 
     if (Object.values(rotationFlags).some(Boolean)) {
         settlingState.active = false;
@@ -436,6 +468,8 @@ export function updateDragInertia(deltaTime) {
 export function settleCubeGroup(deltaTime) {
     if (
         winnerMotionActive
+        || winnerPreparationActive
+        || winnerControlsLocked
         || isDragging
         || dragInertia.x !== 0
         || dragInertia.y !== 0
@@ -503,4 +537,63 @@ export function updateWinnerMotion(deltaTime) {
         .premultiply(winnerMotionXRotation)
         .premultiply(winnerMotionZRotation)
         .normalize();
+}
+
+export function prepareWinnerView(
+    winningCenterPosition,
+    { isWin = false } = {},
+) {
+    window.dispatchEvent(new Event("cube-winner-preparing"));
+    winnerCenterDirection.copy(winningCenterPosition).normalize();
+    const targetRotation = orthogonalRotations.reduce((best, rotation) => {
+        const facingScore = winnerCenterDirection.clone().applyQuaternion(rotation).z;
+        const bestFacingScore = winnerCenterDirection.clone().applyQuaternion(best).z;
+        if (facingScore > bestFacingScore + SNAP_THRESHOLD) return rotation;
+        if (Math.abs(facingScore - bestFacingScore) <= SNAP_THRESHOLD
+            && cubeGroup.quaternion.angleTo(rotation) < cubeGroup.quaternion.angleTo(best)) {
+            return rotation;
+        }
+        return best;
+    });
+    const angle = cubeGroup.quaternion.angleTo(targetRotation);
+    winnerPreparationStart.copy(cubeGroup.quaternion);
+    winnerPreparationTarget.copy(targetRotation);
+    winnerPreparationElapsed = 0;
+    winnerPreparationDuration = Math.min(
+        isWin ? WINNER_ROTATION_MAX_DURATION : AI_ROTATION_MAX_DURATION,
+        Math.max(0.35, angle * 0.7),
+    );
+    winnerPreparationActive = angle > SNAP_THRESHOLD;
+    forcedRotationTarget = null;
+    settlingState.active = false;
+
+    if (!winnerPreparationActive) {
+        cubeGroup.quaternion.copy(winnerPreparationTarget);
+        return Promise.resolve();
+    }
+
+    return new Promise(resolve => {
+        winnerPreparationResolve = resolve;
+    });
+}
+
+export function updateWinnerPreparation(deltaTime) {
+    if (!winnerPreparationActive) return;
+
+    winnerPreparationElapsed = Math.min(
+        winnerPreparationElapsed + deltaTime,
+        winnerPreparationDuration,
+    );
+    const progress = winnerPreparationElapsed / winnerPreparationDuration;
+    const easedProgress = 1 - (1 - progress) ** 3;
+    cubeGroup.quaternion.copy(winnerPreparationStart).slerp(
+        winnerPreparationTarget,
+        easedProgress,
+    );
+    if (progress === 1) {
+        cubeGroup.quaternion.copy(winnerPreparationTarget);
+        winnerPreparationActive = false;
+        winnerPreparationResolve?.();
+        winnerPreparationResolve = null;
+    }
 }

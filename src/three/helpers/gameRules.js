@@ -6,9 +6,60 @@ const CENTER_CUBE_NAMES = Object.freeze([
 ]);
 
 export function hasWinningLine(cubes) {
-    return WINNING_CASES.some(winningCase => (
+    return getWinningLine(cubes) !== null;
+}
+
+export function getWinningLine(cubes) {
+    return WINNING_CASES.find(winningCase => (
         winningCase.every(winningPosition => cubes.includes(winningPosition))
+    )) || null;
+}
+
+export function getWinningCenterCube(winningLine) {
+    const faceAxis = [0, 1, 2].find(axis => (
+        winningLine.every(position => position[axis] === winningLine[0][axis])
+        && winningLine[0][axis] !== 'B'
     ));
+    if (faceAxis !== undefined) {
+        const centerCube = ['B', 'B', 'B'];
+        centerCube[faceAxis] = winningLine[0][faceAxis];
+        return centerCube.join('');
+    }
+    return CENTER_CUBE_NAMES.find(cubeName => winningLine.includes(cubeName)) || null;
+}
+
+export function getWinningMiddleCube(winningLine) {
+    if (winningLine.length !== 3) return null;
+    const faceAxis = [0, 1, 2].find(axis => (
+        winningLine.every(position => position[axis] === winningLine[0][axis])
+        && winningLine[0][axis] !== 'B'
+    ));
+    if (faceAxis === undefined) return null;
+
+    const centerCube = ['B', 'B', 'B'];
+    centerCube[faceAxis] = winningLine[0][faceAxis];
+    if (winningLine.includes(centerCube.join(''))) return null;
+    const centerCoordinates = centerCube.map(value => (
+        value === 'A' ? -1 : value === 'C' ? 1 : 0
+    ));
+    const coordinates = winningLine.map(position => [...position].map(value => (
+        value === 'A' ? -1 : value === 'C' ? 1 : 0
+    )));
+    const oppositePairs = [];
+
+    for (let first = 0; first < coordinates.length; first += 1) {
+        for (let second = first + 1; second < coordinates.length; second += 1) {
+            if (coordinates[first].every((value, axis) => (
+                value + coordinates[second][axis] === 2 * centerCoordinates[axis]
+            ))) {
+                oppositePairs.push([first, second]);
+            }
+        }
+    }
+
+    if (oppositePairs.length !== 1) return null;
+    const [first, second] = oppositePairs[0];
+    return winningLine.find((_, index) => index !== first && index !== second) || null;
 }
 
 export function getMoveWinner(cubesByColor, colorIndex, mode, playerIndex) {

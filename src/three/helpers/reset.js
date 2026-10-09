@@ -20,5 +20,16 @@ export default function renderCubeResetter() {
   onLanguageChange(() => {
     resetButton.innerText = translate('reset');
   });
+  const setDisabled = () => {
+    resetButton.disabled = true;
+  };
+  window.addEventListener('cube-winner-preparing', setDisabled);
+  window.addEventListener('cube-winner-start', setDisabled);
+  window.addEventListener('cube-winner-preparation-end', () => {
+    resetButton.disabled = false;
+  });
+  window.addEventListener('cube-winner-end', () => {
+    resetButton.disabled = false;
+  });
   resetButton.addEventListener('click', resetCubes)  
 }

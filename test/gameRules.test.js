@@ -5,9 +5,13 @@ import { GAME_MODES } from '../src/gameMode.js';
 import {
     chooseAiMove,
     getMoveWinner,
+    getWinningCenterCube,
+    getWinningLine,
+    getWinningMiddleCube,
     hasWinningLine,
 } from '../src/three/helpers/gameRules.js';
 import { getOptimalSelfishMoves } from '../src/three/helpers/selfishAi.js';
+import WINNING_CASES from '../src/three/helpers/winningCases.js';
 
 const createOccupiedCubes = () => [
     { cubesWithThisColor: [] },
@@ -32,6 +36,50 @@ const createAvailableCubes = occupiedCubes => {
 
 test('recognizes configured V-shaped winning positions', () => {
     assert.equal(hasWinningLine(['ACB', 'BCA', 'CCB']), true);
+});
+
+test('returns the exact winning case for face and interior diagonal wins', () => {
+    assert.deepEqual(
+        getWinningLine(['ACB', 'BCB', 'CCB']),
+        ['ACB', 'BCB', 'CCB'],
+    );
+    assert.deepEqual(
+        getWinningLine(['ABA', 'BCB', 'CBC']),
+        ['ABA', 'BCB', 'CBC'],
+    );
+    assert.equal(getWinningLine(['ACB', 'BCB']), null);
+});
+
+test('every winning case identifies its nearest-facing center cube', () => {
+    WINNING_CASES.forEach(winningCase => {
+        const centerCube = getWinningCenterCube(winningCase);
+        assert.ok(centerCube, `No center cube found in ${winningCase.join(', ')}`);
+        const faceAxis = [0, 1, 2].find(axis => (
+            winningCase.every(position => position[axis] === winningCase[0][axis])
+            && winningCase[0][axis] !== 'B'
+        ));
+        if (faceAxis !== undefined) {
+            const expectedCenterCube = ['B', 'B', 'B'];
+            expectedCenterCube[faceAxis] = winningCase[0][faceAxis];
+            assert.equal(centerCube, expectedCenterCube.join(''));
+        } else {
+            assert.ok(winningCase.includes(centerCube));
+        }
+    });
+});
+
+test('V-shaped wins identify a middle cube positioned in front of the face center', () => {
+    const vWins = WINNING_CASES.filter(winningCase => (
+        getWinningMiddleCube(winningCase) !== null
+    ));
+    assert.equal(vWins.length, 24);
+    vWins.forEach(winningCase => {
+        const centerCube = getWinningCenterCube(winningCase);
+        const middleCube = getWinningMiddleCube(winningCase);
+        assert.ok(centerCube);
+        assert.ok(winningCase.includes(middleCube));
+    });
+    assert.equal(getWinningMiddleCube(['ACB', 'BCB', 'CCB']), null);
 });
 
 test('recognizes a team win across multiple colors', () => {

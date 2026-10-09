@@ -4,6 +4,7 @@ import {
     rotationChecks,
     settleCubeGroup,
     updateDragInertia,
+    updateWinnerPreparation,
     updateWinnerMotion,
 } from "./helpers/rotation";
 import { renderer } from "./renderer";
@@ -17,6 +18,7 @@ export default function animate() {
     rotationChecks();
     updateDragInertia(deltaTime);
     settleCubeGroup(deltaTime);
+    updateWinnerPreparation(deltaTime);
     updateWinnerMotion(deltaTime);
     renderer.render(scene, camera1);
 }
