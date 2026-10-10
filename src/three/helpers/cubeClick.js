@@ -22,6 +22,7 @@ const mouse = new Vector2();
 let currentColorIndex = 2;
 let turnCount = 0;
 let winnerModalOpen = false;
+let tutorialActive = false;
 let aiTurnTimeout = null;
 let aiWorker = null;
 let pendingAiRequest = null;
@@ -269,6 +270,13 @@ function revealCubeColor(cube, winningMaterial) {
 
 
 export default function cubeClickColorChange(cubeList) {
+    window.addEventListener('cube-tutorial-start', () => {
+        tutorialActive = true;
+    });
+    window.addEventListener('cube-tutorial-end', () => {
+        tutorialActive = false;
+    });
+
     function showOutcome(winnerColor, winnerPlayerKey = null, isDraw = false) {
         let isModalClosed = false;
         turnStatus.hidden = true;
@@ -497,6 +505,7 @@ export default function cubeClickColorChange(cubeList) {
     function onClick(event) {
         if (
             !gameStarted
+            || tutorialActive
             || winnerModalOpen
             || (
                 getGameMode() === GAME_MODES.ONE_PLAYER
