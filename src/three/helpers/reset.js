@@ -31,5 +31,13 @@ export default function renderCubeResetter() {
   window.addEventListener('cube-winner-end', () => {
     resetButton.disabled = false;
   });
+  window.addEventListener('cube-tutorial-start', () => {
+    document.body.classList.add('tutorial-active');
+    resetButton.disabled = true;
+  });
+  window.addEventListener('cube-tutorial-end', () => {
+    document.body.classList.remove('tutorial-active');
+    resetButton.disabled = false;
+  });
   resetButton.addEventListener('click', resetCubes)  
 }

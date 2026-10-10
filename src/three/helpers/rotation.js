@@ -49,7 +49,21 @@ let winnerPreparationElapsed = 0;
 let winnerPreparationDuration = 0;
 const winnerPreparationStart = new Quaternion();
 const winnerPreparationTarget = new Quaternion();
+const winnerPreparationAdjustment = new Quaternion();
+const winnerCurrentInverse = new Quaternion();
+const winnerCandidateDelta = new Quaternion();
+const winnerBestDelta = new Quaternion();
 const winnerCenterDirection = new Vector3();
+const winnerLineDirection = new Vector3();
+const winnerCandidateDirection = new Vector3();
+const winnerBestDirection = new Vector3();
+const winnerScreenDirection = new Vector3();
+const winnerRightTurnAxis = new Vector3(0, 1, 0);
+const winnerScreenDirections = {
+    x: new Vector3(1, 0, 0),
+    y: new Vector3(0, 1, 0),
+};
+const winnerDownwardAxis = new Vector3(1, 0, 0);
 let winnerPreparationResolve = null;
 const dragInertia = {
    x: 0,
@@ -129,6 +143,19 @@ function closestRotationTo(source) {
     ));
 }
 
+function getSignedRotationAlongAxis(rotation, currentInverse, axis, result) {
+    result.copy(rotation).multiply(currentInverse).normalize();
+    if (result.w < 0) {
+        result.set(-result.x, -result.y, -result.z, -result.w);
+    }
+    const vectorLength = Math.hypot(result.x, result.y, result.z);
+    if (vectorLength === 0) return 0;
+    const angle = 2 * Math.atan2(vectorLength, result.w);
+    return angle * (
+        result.x * axis.x + result.y * axis.y + result.z * axis.z
+    ) / vectorLength;
+}
+
 function setForcedRotationTarget(pressStart, axis, direction) {
     const minimumRotation = new Quaternion().setFromAxisAngle(
         axis,
@@ -172,6 +199,21 @@ function setupDragRotation() {
             rotationFlags[id] = false;
         });
         buttonPresses.clear();
+    });
+    window.addEventListener("cube-tutorial-start", () => {
+        winnerControlsLocked = true;
+        stopDragInertia();
+        isDragging = false;
+        activePointerId = null;
+        settlingState.active = false;
+        forcedRotationTarget = null;
+        Object.keys(rotationFlags).forEach(id => {
+            rotationFlags[id] = false;
+        });
+        buttonPresses.clear();
+    });
+    window.addEventListener("cube-tutorial-end", () => {
+        winnerControlsLocked = false;
     });
     window.addEventListener("cube-winner-start", () => {
         winnerControlsLocked = true;
@@ -329,7 +371,7 @@ export function getCubeGravityTarget() {
 export function rotationButtons() {
     setupDragRotation();
 
-    const buttons = [
+    const buttonDefinitions = [
         ["rotateUp", "▲", "w", "rotateUp"],
         ["rotateDown", "▼", "s", "rotateDown"],
         ["rotateLeft", "◀", "a", "rotateLeft"],
@@ -337,14 +379,29 @@ export function rotationButtons() {
         ["rotateClockwise", "↻", "e", "rotateClockwise"],
         ["rotateCounterClockwise", "↺", "q", "rotateCounterClockwise"],
     ];
+    const buttons = [];
 
-    buttons.forEach(([id, label, key, translationKey]) => {
+    buttonDefinitions.forEach(([id, label, key, translationKey]) => {
         const btn = document.createElement("button");
+        buttons.push(btn);
         btn.id = id;
         btn.innerText = label;
         btn.setAttribute("aria-label", translate(translationKey));
         btn.title = `${translate(translationKey)} (${key.toUpperCase()})`;
         app.appendChild(btn);
+        window.addEventListener("cube-tutorial-start", () => {
+            btn.disabled = true;
+        });
+        window.addEventListener("cube-tutorial-end", () => {
+            btn.disabled = false;
+            btn.classList.remove("tutorial-controls-muted");
+        });
+        window.addEventListener("cube-tutorial-animation-start", () => {
+            btn.classList.add("tutorial-controls-muted");
+        });
+        window.addEventListener("cube-tutorial-animation-end", () => {
+            btn.classList.remove("tutorial-controls-muted");
+        });
 
         const start = () => {
             if (winnerControlsLocked) return;
@@ -376,7 +433,7 @@ export function rotationButtons() {
     });
 
     onLanguageChange(() => {
-        buttons.forEach(([id, , key, translationKey]) => {
+        buttonDefinitions.forEach(([id, , key, translationKey]) => {
             const button = document.getElementById(id);
             const label = translate(translationKey);
             button.setAttribute("aria-label", label);
@@ -541,20 +598,85 @@ export function updateWinnerMotion(deltaTime) {
 
 export function prepareWinnerView(
     winningCenterPosition,
-    { isWin = false } = {},
+    {
+        isWin = false,
+        lineDirection = null,
+        screenAxis = null,
+        rotationDirection = null,
+    } = {},
 ) {
     window.dispatchEvent(new Event("cube-winner-preparing"));
     winnerCenterDirection.copy(winningCenterPosition).normalize();
+    if (lineDirection && screenAxis) {
+        winnerLineDirection.copy(lineDirection).normalize();
+        winnerScreenDirection.copy(winnerScreenDirections[screenAxis]);
+    } else {
+        winnerLineDirection.set(0, 0, 0);
+        winnerScreenDirection.set(0, 0, 0);
+    }
+    winnerCurrentInverse.copy(cubeGroup.quaternion).invert();
     const targetRotation = orthogonalRotations.reduce((best, rotation) => {
-        const facingScore = winnerCenterDirection.clone().applyQuaternion(rotation).z;
-        const bestFacingScore = winnerCenterDirection.clone().applyQuaternion(best).z;
+        const facingScore = winnerCandidateDirection
+            .copy(winnerCenterDirection)
+            .applyQuaternion(rotation)
+            .z;
+        const bestFacingScore = winnerBestDirection
+            .copy(winnerCenterDirection)
+            .applyQuaternion(best)
+            .z;
         if (facingScore > bestFacingScore + SNAP_THRESHOLD) return rotation;
-        if (Math.abs(facingScore - bestFacingScore) <= SNAP_THRESHOLD
-            && cubeGroup.quaternion.angleTo(rotation) < cubeGroup.quaternion.angleTo(best)) {
+        if (Math.abs(facingScore - bestFacingScore) > SNAP_THRESHOLD) return best;
+        const lineScore = winnerCandidateDirection
+            .copy(winnerLineDirection)
+            .applyQuaternion(rotation)
+            .dot(winnerScreenDirection);
+        const bestLineScore = winnerBestDirection
+            .copy(winnerLineDirection)
+            .applyQuaternion(best)
+            .dot(winnerScreenDirection);
+        if (lineScore > bestLineScore + SNAP_THRESHOLD) return rotation;
+        if (Math.abs(lineScore - bestLineScore) > SNAP_THRESHOLD) return best;
+        const rotationAxis = rotationDirection === "right"
+            ? winnerRightTurnAxis
+            : null;
+        if (rotationAxis) {
+            const turnScore = getSignedRotationAlongAxis(
+                rotation,
+                winnerCurrentInverse,
+                rotationAxis,
+                winnerCandidateDelta,
+            );
+            const bestTurnScore = getSignedRotationAlongAxis(
+                best,
+                winnerCurrentInverse,
+                rotationAxis,
+                winnerBestDelta,
+            );
+            if (turnScore > bestTurnScore + SNAP_THRESHOLD) return rotation;
+            if (Math.abs(turnScore - bestTurnScore) > SNAP_THRESHOLD) return best;
+        }
+        if (cubeGroup.quaternion.angleTo(rotation) < cubeGroup.quaternion.angleTo(best)) {
             return rotation;
         }
         return best;
     });
+    return animateWinnerPreparation(targetRotation, isWin);
+}
+
+export function flipWinnerViewDown() {
+    window.dispatchEvent(new Event("cube-winner-preparing"));
+    winnerPreparationAdjustment.setFromAxisAngle(
+        winnerDownwardAxis,
+        MINIMUM_ROTATION_ANGLE,
+    );
+    winnerPreparationTarget
+        .copy(winnerPreparationAdjustment)
+        .multiply(cubeGroup.quaternion)
+        .normalize();
+    return animateWinnerPreparation(winnerPreparationTarget);
+}
+
+function animateWinnerPreparation(targetRotation, isWin = false) {
     const angle = cubeGroup.quaternion.angleTo(targetRotation);
     winnerPreparationStart.copy(cubeGroup.quaternion);
     winnerPreparationTarget.copy(targetRotation);

@@ -30,6 +30,7 @@ let currentColorIndex = 0;
 let turnCount = 0;
 let gameStarted = false;
 let winnerModalOpen = false;
+let tutorialActive = false;
 const roundPlays = [];
 let aiTurnTimeout = null;
 let selfishAiWorker = null;
@@ -312,6 +313,13 @@ function revealWinningCube(cube, winningMaterial) {
 
 
 export default function cubeClickColorChange(cubeList) {
+    window.addEventListener('cube-tutorial-start', () => {
+        tutorialActive = true;
+    });
+    window.addEventListener('cube-tutorial-end', () => {
+        tutorialActive = false;
+    });
+
     function showWinner(winnerColor, playerNameKey = null) {
         const winningMaterial = playerNameKey === 'draw'
             ? null
@@ -553,6 +561,7 @@ export default function cubeClickColorChange(cubeList) {
     function onClick(event) {
         if (
             !gameStarted
+            || tutorialActive
             || winnerModalOpen
             || (
                 getGameMode() === GAME_MODES.ONE_PLAYER

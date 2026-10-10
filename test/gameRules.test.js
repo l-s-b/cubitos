@@ -11,6 +11,7 @@ import {
     hasWinningLine,
 } from '../src/three/helpers/gameRules.js';
 import { getOptimalSelfishMoves } from '../src/three/helpers/selfishAi.js';
+import tutorialExamples from '../src/three/helpers/tutorialExamples.js';
 import WINNING_CASES from '../src/three/helpers/winningCases.js';
 
 const createOccupiedCubes = () => [
@@ -80,6 +81,22 @@ test('V-shaped wins identify a middle cube positioned in front of the face cente
         assert.ok(winningCase.includes(middleCube));
     });
     assert.equal(getWinningMiddleCube(['ACB', 'BCB', 'CCB']), null);
+});
+
+test('tutorial examples are valid wins with matching viewing centers', () => {
+    tutorialExamples.forEach(({ line, center, middle }) => {
+        assert.deepEqual(getWinningLine(line), line);
+        assert.equal(getWinningCenterCube(line), center);
+        assert.equal(getWinningMiddleCube(line), middle || null);
+    });
+});
+
+test('tutorial horizontal and vertical examples match their intended screen axes', () => {
+    assert.equal(tutorialExamples[0].screenAxis, 'x');
+    assert.equal(tutorialExamples[1].screenAxis, 'y');
+    assert.equal(tutorialExamples[2].center, 'BBC');
+    assert.equal(tutorialExamples[2].screenAxis, 'x');
+    assert.equal(tutorialExamples[2].rotationDirection, 'right');
 });
 
 test('recognizes a team win across multiple colors', () => {

@@ -5,6 +5,23 @@ button#rotateRight,
 button#rotateClockwise,
 button#rotateCounterClockwise {
   z-index: 4;
+  transition: opacity 160ms ease;
+}
+
+button.tutorial-controls-muted {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button#rotateUp,
+  button#rotateDown,
+  button#rotateLeft,
+  button#rotateRight,
+  button#rotateClockwise,
+  button#rotateCounterClockwise {
+    transition-duration: 1ms;
+  }
 }
 
 button#rotateUp {

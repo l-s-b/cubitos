@@ -69,6 +69,10 @@ button#reset {
   letter-spacing: 0.12em;
 }
 
+body.tutorial-active button#reset {
+  display: none;
+}
+
 button#language-toggle {
   position: fixed;
   z-index: 20;
