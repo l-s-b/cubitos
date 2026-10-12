@@ -1,7 +1,7 @@
 {
   "name": "cubitos",
   "private": true,
-  "version": "1.8.0",
+  "version": "2.6.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
