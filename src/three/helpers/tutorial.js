@@ -13,6 +13,7 @@ import DEMONSTRATIONS from './tutorialExamples.js';
 
 let originalRotation = null;
 let originalCanvasBackground = '';
+let originalCubeMaterials = null;
 let animationToken = 0;
 const DEMONSTRATION_MATERIALS = [
     redCubeMaterial,
@@ -59,6 +60,7 @@ export function beginTutorial() {
     animationToken += 1;
     originalRotation = cubeGroup.quaternion.clone();
     originalCanvasBackground = renderer.domElement.style.backgroundColor;
+    originalCubeMaterials = cubeList.map(cube => [cube, cube.material]);
     clearDemo();
     window.dispatchEvent(new Event('cube-tutorial-start'));
 }
@@ -96,6 +98,12 @@ export async function straightenTutorialV() {
 export function endTutorial() {
     animationToken += 1;
     clearDemo();
+    if (originalCubeMaterials) {
+        originalCubeMaterials.forEach(([cube, material]) => {
+            cube.material = material;
+        });
+        originalCubeMaterials = null;
+    }
     if (originalRotation) {
         cubeGroup.quaternion.copy(originalRotation);
         originalRotation = null;

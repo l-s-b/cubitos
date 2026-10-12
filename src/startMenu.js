@@ -26,6 +26,7 @@ export default function createStartMenu(onStartGame) {
   let currentScreen = 'welcome';
   let selectedMode;
   let isStarting = false;
+  let gameStarted = false;
   let tutorialStep = 0;
   let tutorialStarted = false;
   let isTutorialVShown = false;
@@ -59,10 +60,10 @@ export default function createStartMenu(onStartGame) {
     overlay.addEventListener('animationend', event => {
       if (event.target !== overlay) return;
       overlay.remove();
-      unsubscribeFromLanguageChanges();
+      gameStarted = true;
       if (currentScreen === 'tutorial') endTutorial();
       onStartGame({ mode: selectedMode, difficulty });
-    });
+    }, { once: true });
   };
 
   const createButton = (
@@ -162,10 +163,12 @@ export default function createStartMenu(onStartGame) {
           endTutorial();
           overlay.classList.remove('start-menu--tutorial');
           overlay.style.removeProperty('--tutorial-step-color');
-          const languageToggle = document.getElementById('language-toggle');
-          if (languageToggle) languageToggle.hidden = false;
-          currentScreen = 'welcome';
-          renderScreen();
+          if (gameStarted) {
+            overlay.remove();
+          } else {
+            currentScreen = 'welcome';
+            renderScreen();
+          }
         });
       }));
     } else {
@@ -220,15 +223,7 @@ export default function createStartMenu(onStartGame) {
         renderScreen();
       }));
       buttons.appendChild(createButton('tutorialHowToPlay', () => {
-        currentScreen = 'tutorial';
-        tutorialStep = 0;
-        tutorialStarted = false;
-        isTutorialVShown = false;
-        overlay.classList.add('start-menu--tutorial');
-        const languageToggle = document.getElementById('language-toggle');
-        if (languageToggle) languageToggle.hidden = true;
-        beginTutorial();
-        renderScreen();
+        openTutorial();
       }, true, null, true));
     } else if (currentScreen === 'mode') {
       heading.textContent = translate('menuChooseMode');
@@ -268,6 +263,23 @@ export default function createStartMenu(onStartGame) {
     buttons.querySelector('button')?.focus();
   };
 
-  const unsubscribeFromLanguageChanges = onLanguageChange(renderScreen);
+  const openTutorial = () => {
+    if (isStarting && !gameStarted) return;
+    if (currentScreen === 'tutorial') return;
+    currentScreen = 'tutorial';
+    tutorialStep = 0;
+    tutorialStarted = false;
+    isTutorialVShown = false;
+    overlay.classList.add('start-menu--tutorial');
+    if (gameStarted) {
+      overlay.classList.remove('start-menu--closing');
+      document.body.appendChild(overlay);
+    }
+    beginTutorial();
+    renderScreen();
+  };
+
+  window.addEventListener('cube-tutorial-open', openTutorial);
+  onLanguageChange(renderScreen);
   renderScreen();
 }
