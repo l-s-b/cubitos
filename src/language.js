@@ -1,6 +1,15 @@
 const TRANSLATIONS = {
   es: {
     switchLanguage: 'Cambiar idioma a inglés',
+    home: 'Inicio',
+    openMenu: 'Abrir menú',
+    closeMenu: 'Cerrar menú',
+    close: 'Cerrar',
+    about: 'Acerca de',
+    contactName: 'Lucio SB',
+    contactWhatsApp: 'WhatsApp',
+    contactEmail: 'Correo electrónico',
+    tutorialMenu: 'Cómo jugar',
     menuPlay: 'Jugar',
     tutorialHowToPlay: 'Cómo jugar',
     tutorialIntroTitle: 'Cómo ganar',
@@ -58,6 +67,15 @@ const TRANSLATIONS = {
   },
   en: {
     switchLanguage: 'Switch language to Spanish',
+    home: 'Home',
+    openMenu: 'Open menu',
+    closeMenu: 'Close menu',
+    close: 'Close',
+    about: 'About',
+    contactName: 'Lucio SB',
+    contactWhatsApp: 'WhatsApp',
+    contactEmail: 'Email',
+    tutorialMenu: 'How to play',
     menuPlay: 'Play',
     tutorialHowToPlay: 'How to play',
     tutorialIntroTitle: 'How to win',
@@ -147,8 +165,17 @@ export function createLanguageToggle() {
   button.id = 'language-toggle';
   button.type = 'button';
 
+  const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  icon.setAttribute('viewBox', '0 0 24 24');
+  icon.setAttribute('aria-hidden', 'true');
+  icon.setAttribute('focusable', 'false');
+  icon.innerHTML = '<path d="M4 5h12M10 3v2c0 6-3 10-7 12M6 10c1.5 2.5 4 4.5 7 5.5M14 20l4-10 4 10M15.5 16h5"/>';
+  const languageCode = document.createElement('span');
+  languageCode.className = 'site-nav__language-code';
+  button.append(icon, languageCode);
+
   const updateButton = () => {
-    button.textContent = currentLanguage === 'es' ? '🇦🇷' : '🇺🇸';
+    languageCode.textContent = currentLanguage === 'es' ? 'AR' : 'US';
     button.setAttribute('aria-label', translate('switchLanguage'));
     button.title = translate('switchLanguage');
   };
@@ -158,5 +185,5 @@ export function createLanguageToggle() {
   });
   onLanguageChange(updateButton);
   updateButton();
-  document.body.appendChild(button);
+  return button;
 }
