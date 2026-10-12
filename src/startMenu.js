@@ -6,6 +6,7 @@ import {
   showTutorialStep,
   straightenTutorialV,
 } from './three/helpers/tutorial';
+import { resetCubes } from './three/helpers/reset';
 import './startMenu.css';
 
 const MENU_TITLE_ID = 'start-menu-title';
@@ -45,11 +46,11 @@ export default function createStartMenu(onStartGame) {
     renderScreen();
     animation().then(() => {
       tutorialAnimationActive = false;
-      renderScreen();
+      if (currentScreen === 'tutorial') renderScreen();
     }).catch(error => {
       tutorialAnimationActive = false;
       console.error(error);
-      renderScreen();
+      if (currentScreen === 'tutorial') renderScreen();
     });
   };
 
@@ -59,6 +60,7 @@ export default function createStartMenu(onStartGame) {
     overlay.classList.add('start-menu--closing');
     overlay.addEventListener('animationend', event => {
       if (event.target !== overlay) return;
+      if (!isStarting) return;
       overlay.remove();
       gameStarted = true;
       if (currentScreen === 'tutorial') endTutorial();
@@ -279,6 +281,20 @@ export default function createStartMenu(onStartGame) {
     renderScreen();
   };
 
+  const returnHome = () => {
+    if (currentScreen === 'tutorial') endTutorial();
+    currentScreen = 'welcome';
+    isStarting = false;
+    gameStarted = false;
+    tutorialAnimationActive = false;
+    overlay.classList.remove('start-menu--tutorial', 'start-menu--closing');
+    overlay.style.removeProperty('--tutorial-step-color');
+    resetCubes();
+    document.body.appendChild(overlay);
+    renderScreen();
+  };
+
+  window.addEventListener('cube-home', returnHome);
   window.addEventListener('cube-tutorial-open', openTutorial);
   onLanguageChange(renderScreen);
   renderScreen();

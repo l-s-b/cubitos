@@ -5,6 +5,8 @@ const ICONS = {
   home: '<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-6v-6h-4v6H4a1 1 0 0 1-1-1z"/>',
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
   tutorial: '<circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 4.2 1.8c-1.2 1-1.8 1.4-1.8 3.2M12 17.5h.01"/>',
+  soundOn: '<path d="M11 5 6 9H3v6h3l5 4zM15.5 8.5a5 5 0 0 1 0 7M18 5a9 9 0 0 1 0 14"/>',
+  soundOff: '<path d="M11 5 6 9H3v6h3l5 4zM16 9l5 6M21 9l-5 6"/>',
   about: '<circle cx="12" cy="8" r="3.5"/><path d="M5 21v-2a7 7 0 0 1 14 0v2z"/>',
   close: '<path d="m6 6 12 12M18 6 6 18"/>',
 };
@@ -37,6 +39,10 @@ export default function createNavigation(languageToggle) {
   const home = document.createElement('a');
   home.className = 'site-nav__home';
   home.href = './';
+  home.addEventListener('click', event => {
+    event.preventDefault();
+    window.dispatchEvent(new Event('cube-home'));
+  });
   home.append(createIcon('home'));
   const homeLabel = document.createElement('span');
   homeLabel.textContent = translate('home');
@@ -54,6 +60,11 @@ export default function createNavigation(languageToggle) {
   const menuHome = document.createElement('a');
   menuHome.className = 'site-nav__item';
   menuHome.href = './';
+  menuHome.addEventListener('click', event => {
+    event.preventDefault();
+    closeMenu();
+    window.dispatchEvent(new Event('cube-home'));
+  });
   menuHome.append(createIcon('home'));
   const menuHomeLabel = document.createElement('span');
   menuHome.appendChild(menuHomeLabel);
@@ -65,6 +76,59 @@ export default function createNavigation(languageToggle) {
     closeMenu();
     window.dispatchEvent(new Event('cube-tutorial-open'));
   });
+
+  const music = new Audio(new URL('../music/arp3ggio.mp3', import.meta.url));
+  music.loop = true;
+  music.autoplay = true;
+  music.volume = 0.35;
+  const musicButton = document.createElement('button');
+  musicButton.className = 'site-nav__item site-nav__music';
+  musicButton.type = 'button';
+  const musicIcon = createIcon('soundOff');
+  const musicLabel = document.createElement('span');
+  musicButton.append(musicIcon, musicLabel);
+
+  function updateMusicButton() {
+    const isMuted = music.muted || music.paused;
+    musicIcon.innerHTML = ICONS[isMuted ? 'soundOff' : 'soundOn'];
+    const label = translate(isMuted ? 'musicUnmute' : 'musicMute');
+    musicLabel.textContent = label;
+    musicButton.setAttribute('aria-label', label);
+    musicButton.title = label;
+    musicButton.dataset.tooltip = label;
+  }
+
+  function playMusic() {
+    music.play().catch(error => {
+      if (error.name !== 'NotAllowedError') {
+        console.error('Could not play background music.', error);
+      }
+    });
+  }
+
+  const retryAutoplay = () => {
+    if (!music.paused) {
+      document.removeEventListener('pointerdown', retryAutoplay);
+      document.removeEventListener('keydown', retryAutoplay);
+      return;
+    }
+    playMusic();
+  };
+  document.addEventListener('pointerdown', retryAutoplay);
+  document.addEventListener('keydown', retryAutoplay);
+  music.addEventListener('play', updateMusicButton);
+  music.addEventListener('pause', updateMusicButton);
+  music.addEventListener('volumechange', updateMusicButton);
+  musicButton.addEventListener('click', () => {
+    if (music.paused) {
+      music.muted = false;
+      playMusic();
+    } else {
+      music.muted = !music.muted;
+    }
+  });
+  updateMusicButton();
+  playMusic();
 
   languageToggle.classList.add('site-nav__item', 'site-nav__language');
   languageToggle.removeAttribute('hidden');
@@ -125,7 +189,7 @@ export default function createNavigation(languageToggle) {
     }
   });
 
-  menu.append(menuHome, tutorial, languageToggle, aboutButton);
+  menu.append(menuHome, musicButton, tutorial, languageToggle, aboutButton);
   nav.append(home, menuToggle, menu, about);
   document.body.appendChild(nav);
 
@@ -133,6 +197,7 @@ export default function createNavigation(languageToggle) {
     homeLabel.textContent = translate('home');
     menuHomeLabel.textContent = translate('home');
     tutorialLabel.textContent = translate('tutorialMenu');
+    updateMusicButton();
     aboutLabel.textContent = translate('about');
     aboutHeading.textContent = translate('about');
     whatsapp.textContent = '+5493425595020';
