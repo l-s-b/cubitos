@@ -1,7 +1,6 @@
 import { Mesh } from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import cubeClickColorChange from "./helpers/cubeClick";
-import renderCubeResetter from "./helpers/reset";
 import { untouchedCubeMaterial } from "./materials";
 
 const cubeGeometry = new RoundedBoxGeometry(1, 1, 1, 3, 0.075);
@@ -109,6 +108,5 @@ const cubeList = CUBE_DATA.map(eachCube => {
 });
 
 cubeClickColorChange(cubeList);
-renderCubeResetter();
 
 export { cubeList }
