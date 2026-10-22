@@ -5,6 +5,8 @@ const ICONS = {
   home: '<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-6v-6h-4v6H4a1 1 0 0 1-1-1z"/>',
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
   tutorial: '<circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 4.2 1.8c-1.2 1-1.8 1.4-1.8 3.2M12 17.5h.01"/>',
+  hintOn: '<path d="M9 18h6M10 22h4M8.5 14.5a7 7 0 1 1 7 0c-.8.6-1.2 1.4-1.3 2.5h-4.4c-.1-1.1-.5-1.9-1.3-2.5z"/>',
+  hintOff: '<path d="M9 18h6M10 22h4M8.5 14.5a7 7 0 1 1 7 0c-.8.6-1.2 1.4-1.3 2.5h-4.4c-.1-1.1-.5-1.9-1.3-2.5zM3 3l18 18"/>',
   soundOn: '<path d="M11 5 6 9H3v6h3l5 4zM15.5 8.5a5 5 0 0 1 0 7M18 5a9 9 0 0 1 0 14"/>',
   soundOff: '<path d="M11 5 6 9H3v6h3l5 4zM16 9l5 6M21 9l-5 6"/>',
   about: '<circle cx="12" cy="8" r="3.5"/><path d="M5 21v-2a7 7 0 0 1 14 0v2z"/>',
@@ -76,6 +78,42 @@ export default function createNavigation(languageToggle) {
     closeMenu();
     window.dispatchEvent(new Event('cube-tutorial-open'));
   });
+
+  const moveSuggestion = createMenuItem('hintOn', '');
+  let moveSuggestionEnabled = true;
+  const updateMoveSuggestion = () => {
+    const label = translate(
+      moveSuggestionEnabled ? 'moveSuggestionOn' : 'moveSuggestionOff',
+    );
+    moveSuggestion.querySelector('svg').innerHTML = ICONS[
+      moveSuggestionEnabled ? 'hintOn' : 'hintOff'
+    ];
+    moveSuggestion.querySelector('span').textContent = label;
+    moveSuggestion.setAttribute('aria-label', label);
+    moveSuggestion.setAttribute('aria-pressed', String(moveSuggestionEnabled));
+    moveSuggestion.title = label;
+    moveSuggestion.dataset.tooltip = label;
+  };
+  moveSuggestion.hidden = true;
+  moveSuggestion.addEventListener('click', () => {
+    window.dispatchEvent(new Event('cube-hint-toggle'));
+  });
+  window.addEventListener('cube-hint-availability', event => {
+    moveSuggestion.hidden = !event.detail.available;
+    moveSuggestionEnabled = event.detail.enabled;
+    updateMoveSuggestion();
+  });
+  window.addEventListener('cube-hint-state', event => {
+    moveSuggestionEnabled = event.detail.enabled;
+    updateMoveSuggestion();
+  });
+  window.addEventListener('cube-home', () => {
+    moveSuggestion.hidden = true;
+    moveSuggestionEnabled = true;
+    updateMoveSuggestion();
+  });
+  onLanguageChange(updateMoveSuggestion);
+  updateMoveSuggestion();
 
   const music = new Audio(new URL('../music/arp3ggio.mp3', import.meta.url));
   music.loop = true;
@@ -189,7 +227,7 @@ export default function createNavigation(languageToggle) {
     }
   });
 
-  menu.append(menuHome, musicButton, tutorial, languageToggle, aboutButton);
+  menu.append(menuHome, musicButton, tutorial, moveSuggestion, languageToggle, aboutButton);
   nav.append(home, menuToggle, menu, about);
   document.body.appendChild(nav);
 

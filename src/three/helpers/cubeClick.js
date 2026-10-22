@@ -1,7 +1,12 @@
 import { Color, Raycaster, Vector2 } from 'three';
 import { renderer } from '../renderer';
 import { camera1 } from '../cameras';
-import { redCubeMaterial, greenCubeMaterial, blueCubeMaterial } from '../materials';
+import {
+    untouchedCubeMaterial,
+    redCubeMaterial,
+    greenCubeMaterial,
+    blueCubeMaterial,
+} from '../materials';
 import { resetCubes } from './reset';
 import {
     chooseAiMove,
@@ -21,6 +26,7 @@ import { prepareWinnerView } from './rotation';
 import './winnerModal.css';
 
 const PULSE_DURATION = 5200;
+const SUGGESTION_PULSE_DURATION = 1400;
 const TAP_MOVEMENT_THRESHOLD = 12;
 const AI_MOVE_DELAY = 450;
 
@@ -36,6 +42,11 @@ let aiTurnTimeout = null;
 let selfishAiWorker = null;
 let pendingSelfishAiRequest = null;
 let selfishAiRequestId = 0;
+let suggestedCube = null;
+let suggestionMaterial = null;
+let suggestionFrameId = null;
+let scheduleCurrentRedSuggestion = () => {};
+let suggestionsEnabled = true;
 const CUBE_COLORS = [redCubeMaterial, greenCubeMaterial, blueCubeMaterial];
 const occupiedCubes = [
     { color: 'Rojo', HTMLColor: 'red', cubesWithThisColor: [] },
@@ -77,6 +88,55 @@ function cancelSelfishAiRequest() {
     }
 }
 
+function clearRedMoveSuggestion() {
+    if (suggestionFrameId !== null) {
+        cancelAnimationFrame(suggestionFrameId);
+        suggestionFrameId = null;
+    }
+    if (suggestedCube && suggestionMaterial) {
+        if (suggestedCube.material === suggestionMaterial) {
+            suggestedCube.material = untouchedCubeMaterial;
+        }
+        suggestionMaterial.dispose();
+    }
+    suggestedCube = null;
+    suggestionMaterial = null;
+}
+
+function cancelRedMoveSuggestion() {
+    clearRedMoveSuggestion();
+    if (pendingSelfishAiRequest?.isSuggestion) cancelSelfishAiRequest();
+}
+
+function isSuperHardSinglePlayer() {
+    return getGameMode() === GAME_MODES.ONE_PLAYER
+        && getAiDifficulty() === AI_DIFFICULTIES.SUPER_HARD;
+}
+
+function pulseSuggestedCube(cube) {
+    clearRedMoveSuggestion();
+    const material = untouchedCubeMaterial.clone();
+    material.touched = false;
+    const baseEmissive = material.emissive.clone();
+    const highlightEmissive = redCubeMaterial.color.clone();
+    cube.material = material;
+    suggestedCube = cube;
+    suggestionMaterial = material;
+
+    let startTime;
+    const pulse = timestamp => {
+        if (suggestionMaterial !== material) return;
+        if (startTime === undefined) startTime = timestamp;
+        const progress = (
+            1 - Math.cos((timestamp - startTime) / SUGGESTION_PULSE_DURATION * Math.PI * 2)
+        ) / 2;
+        material.emissive.lerpColors(baseEmissive, highlightEmissive, progress);
+        material.emissiveIntensity = 0.3 + progress * 1.2;
+        suggestionFrameId = requestAnimationFrame(pulse);
+    };
+    suggestionFrameId = requestAnimationFrame(pulse);
+}
+
 function requestSelfishAiWorker() {
     if (selfishAiWorker) return selfishAiWorker;
     const worker = new Worker(
@@ -115,7 +175,7 @@ try {
     console.error(error);
 }
 
-function requestSelfishAiMove() {
+function requestSelfishAiMove(isSuggestion = false) {
     return new Promise((resolve, reject) => {
         let worker;
         try {
@@ -127,7 +187,7 @@ function requestSelfishAiMove() {
 
         const requestId = selfishAiRequestId + 1;
         selfishAiRequestId = requestId;
-        pendingSelfishAiRequest = { requestId, resolve, reject };
+        pendingSelfishAiRequest = { requestId, resolve, reject, isSuggestion };
         try {
             worker.postMessage({
                 requestId,
@@ -313,11 +373,30 @@ function revealWinningCube(cube, winningMaterial) {
 
 
 export default function cubeClickColorChange(cubeList) {
+    window.addEventListener('cube-hint-toggle', () => {
+        if (!gameStarted || !isSuperHardSinglePlayer()) return;
+        suggestionsEnabled = !suggestionsEnabled;
+        window.dispatchEvent(new CustomEvent('cube-hint-state', {
+            detail: { enabled: suggestionsEnabled },
+        }));
+        if (suggestionsEnabled) {
+            scheduleCurrentRedSuggestion();
+        } else {
+            cancelRedMoveSuggestion();
+        }
+    });
+    window.addEventListener('cube-home', () => {
+        gameStarted = false;
+        suggestionsEnabled = true;
+        cancelRedMoveSuggestion();
+    });
     window.addEventListener('cube-tutorial-start', () => {
         tutorialActive = true;
+        cancelRedMoveSuggestion();
     });
     window.addEventListener('cube-tutorial-end', () => {
         tutorialActive = false;
+        scheduleRedMoveSuggestion();
     });
 
     function showWinner(winnerColor, playerNameKey = null) {
@@ -342,6 +421,7 @@ export default function cubeClickColorChange(cubeList) {
             stopWinnerGlow();
             resetCubes();
             winnerModalOpen = false;
+            scheduleCurrentRedSuggestion();
             window.dispatchEvent(new Event('cube-winner-end'));
         }, playerNameKey);
     }
@@ -394,6 +474,7 @@ export default function cubeClickColorChange(cubeList) {
         setTurnBackground(currentColorIndex);
         updateTurnStatus();
         scheduleAiTurn();
+        scheduleRedMoveSuggestion();
     }
 
     function scheduleAiTurn() {
@@ -441,8 +522,55 @@ export default function cubeClickColorChange(cubeList) {
         }, AI_MOVE_DELAY);
     }
 
+    function scheduleRedMoveSuggestion() {
+        if (
+            !gameStarted
+            || tutorialActive
+            || winnerModalOpen
+            || !suggestionsEnabled
+            || !isSuperHardSinglePlayer()
+            || currentColorIndex !== 0
+        ) return;
+
+        requestSelfishAiMove(true)
+            .then(moveName => {
+                if (
+                    !moveName
+                    || !gameStarted
+                    || tutorialActive
+                    || winnerModalOpen
+                    || !suggestionsEnabled
+                    || !isSuperHardSinglePlayer()
+                    || currentColorIndex !== 0
+                ) return;
+                const cube = cubeList.find(
+                    availableCube => availableCube.shortName === moveName,
+                );
+                if (!cube || cube.material.touched) {
+                    throw new Error(`Super-hard suggestion selected unavailable cube "${moveName}".`);
+                }
+                pulseSuggestedCube(cube);
+            })
+            .catch(error => {
+                console.error(error);
+                if (
+                    gameStarted
+                    && !tutorialActive
+                    && !winnerModalOpen
+                    && suggestionsEnabled
+                    && isSuperHardSinglePlayer()
+                    && currentColorIndex === 0
+                ) {
+                    turnStatus.textContent = translate('aiError');
+                }
+            });
+    }
+
+    scheduleCurrentRedSuggestion = scheduleRedMoveSuggestion;
+
     function makeMove(selectedCube, isAiMove = false) {
         if (!gameStarted || winnerModalOpen || selectedCube.material.touched) return;
+        cancelRedMoveSuggestion();
 
         const moveColorIndex = currentColorIndex;
         const playerIndex = turnCount % 2;
@@ -489,6 +617,7 @@ export default function cubeClickColorChange(cubeList) {
         setTurnBackground(currentColorIndex);
         updateTurnStatus();
         scheduleAiTurn();
+        scheduleRedMoveSuggestion();
     }
 
     setTurnBackground(0);
@@ -576,11 +705,17 @@ export default function cubeClickColorChange(cubeList) {
 
 export const configureGameMode = () => {
     gameStarted = true;
+    suggestionsEnabled = true;
     document.querySelector('#app').appendChild(turnStatus);
     updateTurnStatus();
+    window.dispatchEvent(new CustomEvent('cube-hint-availability', {
+        detail: { available: isSuperHardSinglePlayer(), enabled: suggestionsEnabled },
+    }));
+    scheduleCurrentRedSuggestion();
 };
 
 export const resetCubeGameState = () => {
+    cancelRedMoveSuggestion();
     if (aiTurnTimeout !== null) {
         window.clearTimeout(aiTurnTimeout);
         aiTurnTimeout = null;
@@ -594,4 +729,5 @@ export const resetCubeGameState = () => {
     });
     setTurnBackground(0);
     updateTurnStatus();
+    scheduleCurrentRedSuggestion();
 };

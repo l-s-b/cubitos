@@ -106,6 +106,10 @@
   display: none !important;
 }
 
+.site-nav__item[hidden] {
+  display: none !important;
+}
+
 .site-nav__menu {
   position: fixed;
   top: calc(max(1rem, env(safe-area-inset-top)) + 3.75rem);
