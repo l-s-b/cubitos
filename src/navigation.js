@@ -144,8 +144,14 @@ export default function createNavigation(languageToggle) {
 
   const aboutDialog = document.createElement('div');
   aboutDialog.className = 'site-nav__about-dialog';
-  const aboutHeading = document.createElement('h2');
+  const aboutLogo = document.createElement('img');
+  aboutLogo.className = 'site-nav__about-logo';
+  aboutLogo.src = '/android-chrome-192x192.png';
+  aboutLogo.alt = '';
+  const aboutHeading = document.createElement('h1');
+  aboutHeading.className = 'start-menu__brand';
   aboutHeading.id = 'site-nav-about-title';
+  aboutHeading.textContent = 'Ta3Ti';
   const closeAbout = document.createElement('button');
   closeAbout.className = 'site-nav__about-close';
   closeAbout.type = 'button';
@@ -157,7 +163,7 @@ export default function createNavigation(languageToggle) {
   });
   const name = document.createElement('p');
   name.className = 'site-nav__contact-name';
-  name.textContent = translate('contactName');
+  name.textContent = `${translate('by')} ${translate('contactName')}`;
   const phone = document.createElement('p');
   const whatsapp = document.createElement('a');
   whatsapp.href = 'https://wa.me/5493425595020';
@@ -166,7 +172,7 @@ export default function createNavigation(languageToggle) {
   const email = document.createElement('p');
   const mailto = document.createElement('a');
   mailto.href = 'mailto:luciosb100@gmail.com';
-  aboutDialog.append(aboutHeading, closeAbout, name, phone, email);
+  aboutDialog.append(aboutLogo, aboutHeading, closeAbout, name, phone, email);
   phone.append(document.createTextNode(`${translate('contactWhatsApp')}: `), whatsapp);
   email.append(document.createTextNode(`${translate('contactEmail')}: `), mailto);
   about.appendChild(aboutDialog);
@@ -199,7 +205,7 @@ export default function createNavigation(languageToggle) {
     tutorialLabel.textContent = translate('tutorialMenu');
     updateMusicButton();
     aboutLabel.textContent = translate('about');
-    aboutHeading.textContent = translate('about');
+    name.textContent = `${translate('by')} ${translate('contactName')}`;
     whatsapp.textContent = '+5493425595020';
     mailto.textContent = 'luciosb100@gmail.com';
     home.setAttribute('aria-label', translate('home'));
