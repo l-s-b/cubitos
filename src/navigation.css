@@ -180,6 +180,7 @@
 }
 
 .site-nav__about-dialog {
+  --menu-color: #ef5350;
   position: relative;
   width: min(100%, 25rem);
   padding: 2rem;
@@ -187,12 +188,22 @@
   border-radius: 1.25rem;
   background: #171b24;
   box-shadow: 0 1.5rem 5rem rgb(0 0 0 / 45%);
+  font-family: "Space Grotesk", "Share Tech", "Saira", sans-serif;
   text-align: left;
 }
 
-.site-nav__about-dialog h2 {
-  margin: 0 2rem 1.5rem 0;
-  font-size: 1.5rem;
+.site-nav__about-logo {
+  display: block;
+  width: 9rem;
+  height: 9rem;
+  margin: 0 auto 1rem;
+  border-radius: 10rem;
+}
+
+.site-nav__about-dialog .start-menu__brand {
+  margin-bottom: 1.5rem;
+  color: #f7f8fa;
+  text-align: center;
 }
 
 .site-nav__about-dialog p {
