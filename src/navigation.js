@@ -1,4 +1,4 @@
-import { onLanguageChange, translate } from './language';
+import { languages, onLanguageChange, setLanguage, translate } from './language';
 import './navigation.css';
 
 const ICONS = {
@@ -210,6 +210,76 @@ export default function createNavigation(languageToggle) {
   const email = document.createElement('p');
   const mailto = document.createElement('a');
   mailto.href = 'mailto:luciosb100@gmail.com';
+
+  const languageDialog = document.createElement('section');
+  languageDialog.className = 'site-nav__language-dialog';
+  languageDialog.hidden = true;
+  languageDialog.setAttribute('role', 'dialog');
+  languageDialog.setAttribute('aria-modal', 'true');
+  languageDialog.setAttribute('aria-labelledby', 'site-nav-language-title');
+  const languagePanel = document.createElement('div');
+  languagePanel.className = 'site-nav__language-panel';
+  const languageHeader = document.createElement('div');
+  languageHeader.className = 'site-nav__language-header';
+  const languageHeading = document.createElement('h2');
+  languageHeading.className = 'site-nav__language-title';
+  languageHeading.id = 'site-nav-language-title';
+  const closeLanguages = document.createElement('button');
+  closeLanguages.className = 'site-nav__language-close';
+  closeLanguages.type = 'button';
+  closeLanguages.appendChild(createIcon('close'));
+  const languageList = document.createElement('div');
+  languageList.className = 'site-nav__language-list';
+  languageList.setAttribute('role', 'group');
+  languageList.setAttribute('aria-labelledby', languageHeading.id);
+  const languageButtons = languages.map(({ code, name, locale }) => {
+    const option = document.createElement('button');
+    option.className = 'site-nav__language-option';
+    option.type = 'button';
+    option.textContent = name;
+    option.lang = locale;
+    option.addEventListener('click', () => {
+      setLanguage(code);
+      closeLanguageDialog();
+    });
+    languageList.appendChild(option);
+    return { code, locale, option };
+  });
+  languageHeader.append(languageHeading, closeLanguages);
+  languagePanel.append(languageHeader, languageList);
+  languageDialog.appendChild(languagePanel);
+
+  let previousBodyOverflow = '';
+
+  function closeLanguageDialog() {
+    languageDialog.hidden = true;
+    document.body.style.overflow = previousBodyOverflow;
+    languageToggle.focus();
+  }
+
+  function updateLanguageDialog() {
+    languageHeading.textContent = translate('chooseLanguage');
+    closeLanguages.setAttribute('aria-label', translate('close'));
+    closeLanguages.title = translate('close');
+    const selectedLocale = document.documentElement.lang;
+    languageButtons.forEach(({ locale, option }) => {
+      option.setAttribute('aria-pressed', String(locale === selectedLocale));
+    });
+  }
+
+  closeLanguages.addEventListener('click', closeLanguageDialog);
+  languageDialog.addEventListener('click', event => {
+    if (event.target === languageDialog) closeLanguageDialog();
+  });
+  window.addEventListener('cube-language-open', () => {
+    closeMenu();
+    updateLanguageDialog();
+    previousBodyOverflow = document.body.style.overflow;
+    languageDialog.hidden = false;
+    document.body.style.overflow = 'hidden';
+    closeLanguages.focus();
+  });
+
   aboutDialog.append(aboutLogo, aboutHeading, closeAbout, name, phone, email);
   phone.append(document.createTextNode(`${translate('contactWhatsApp')}: `), whatsapp);
   email.append(document.createTextNode(`${translate('contactEmail')}: `), mailto);
@@ -234,7 +304,7 @@ export default function createNavigation(languageToggle) {
   });
 
   menu.append(menuHome, musicButton, tutorial, moveSuggestion, languageToggle, aboutButton);
-  nav.append(home, menuToggle, menu, about);
+  nav.append(home, menuToggle, menu, about, languageDialog);
   document.body.appendChild(nav);
 
   function updateLabels() {
@@ -246,6 +316,7 @@ export default function createNavigation(languageToggle) {
     name.textContent = `${translate('by')} ${translate('contactName')}`;
     whatsapp.textContent = '+5493425595020';
     mailto.textContent = 'luciosb100@gmail.com';
+    updateLanguageDialog();
     home.setAttribute('aria-label', translate('home'));
     home.title = translate('home');
     home.dataset.tooltip = translate('home');
@@ -282,7 +353,9 @@ export default function createNavigation(languageToggle) {
   });
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape') {
-      if (!about.hidden) {
+      if (!languageDialog.hidden) {
+        closeLanguageDialog();
+      } else if (!about.hidden) {
         about.hidden = true;
         aboutButton.focus();
       } else if (!menu.hidden) {
